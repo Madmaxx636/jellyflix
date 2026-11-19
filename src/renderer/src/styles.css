@@ -1,0 +1,133 @@
+:root { --accent: #e50914; --bg: #141414; --fg: #fff; --muted: #b3b3b3; --card-bg: #2b2b2b; --radius: 4px; --btn-radius: 4px; --btn-primary-bg: #fff; --btn-primary-fg: #000; --nav-solid: #141414; }
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: system-ui, "Helvetica Neue", Arial, sans-serif; overflow-x: hidden; }
+::-webkit-scrollbar { width: 10px; height: 0; } ::-webkit-scrollbar-thumb { background: #333; border-radius: 5px; }
+.pad { padding: 100px 4%; }
+.error { color: #ff6b6b; }
+.logo { color: var(--accent); font-weight: 900; letter-spacing: 2px; font-size: 26px; text-decoration: none; margin: 0; }
+
+.btn { background: rgba(109,109,110,.7); color: #fff; border: 0; border-radius: var(--btn-radius); padding: 10px 24px; font-size: 17px; font-weight: 600; cursor: pointer; }
+.btn:hover { background: rgba(109,109,110,.45); }
+.btn.primary { background: var(--btn-primary-bg); color: var(--btn-primary-fg); } .btn.primary:hover { background: rgba(255,255,255,.75); }
+.btn.small { padding: 6px 12px; font-size: 14px; }
+.btn:disabled { opacity: .6; cursor: default; }
+
+.nav { position: fixed; top: 0; left: 0; right: 0; z-index: 10; display: flex; align-items: center; gap: 24px; padding: 14px 4%; background: linear-gradient(to bottom, rgba(0,0,0,.85), transparent); }
+.nav .search { margin-left: auto; background: rgba(0,0,0,.6); border: 1px solid #555; color: #fff; padding: 7px 12px; border-radius: 4px; width: 240px; }
+.nav .user { color: var(--muted); font-size: 14px; }
+
+.login { min-height: 100%; display: grid; place-content: center; justify-items: center; gap: 24px; background: radial-gradient(circle at top, #2a0a0c, var(--bg) 60%); }
+.login form { display: grid; gap: 14px; width: 340px; padding: 40px; background: rgba(0,0,0,.75); border-radius: 6px; }
+.login h2 { margin: 0 0 6px; }
+.login input, .episodes select { background: #333; border: 0; color: #fff; padding: 14px; border-radius: 4px; font-size: 15px; }
+.login .btn.primary { background: var(--accent); color: #fff; }
+
+.hero { position: relative; height: 80vh; min-height: 460px; display: flex; align-items: flex-end; }
+.hero-art { position: absolute; inset: 0; background: #222 center/cover no-repeat; }
+.hero.details { height: 62vh; }
+.hero-fade { position: absolute; inset: 0; background: linear-gradient(to right, rgba(20,20,20,.9) 0%, transparent 60%), linear-gradient(to top, var(--bg) 0%, transparent 35%); }
+.hero-body { position: relative; padding: 0 4% 9%; max-width: 640px; }
+.hero h1 { font-size: 3.4rem; margin: 0 0 12px; text-shadow: 2px 2px 8px rgba(0,0,0,.7); }
+.meta { color: #46d369; font-weight: 600; margin: 0 0 10px; }
+.badge { border: 1px solid #999; color: var(--muted); padding: 0 6px; margin-left: 6px; font-size: 13px; }
+.overview { font-size: 1.1rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; text-shadow: 1px 1px 4px #000; }
+.genres { color: var(--muted); font-size: 14px; }
+.actions { display: flex; gap: 12px; margin-top: 18px; }
+
+.rows { position: relative; margin-top: -9vh; padding-bottom: 60px; }
+.rows.nohero { margin-top: 90px; }
+.row { margin: 0 0 28px; }
+.row h3, .episodes h3 { margin: 0 4% 10px; font-size: 1.3rem; }
+.row-wrap { position: relative; }
+.row-scroll { display: flex; gap: 6px; overflow-x: auto; padding: 0 4%; scrollbar-width: none; scroll-padding: 0 4%; }
+.arrow { position: absolute; top: 0; bottom: 0; width: 4%; z-index: 2; border: 0; background: rgba(20,20,20,.55); color: #fff; font-size: 36px; cursor: pointer; opacity: 0; transition: opacity .2s; }
+.row-wrap:hover .arrow { opacity: 1; } .arrow.left { left: 0; } .arrow.right { right: 0; }
+.card { position: relative; flex: 0 0 auto; width: 170px; aspect-ratio: 2/3; border-radius: var(--radius); overflow: hidden; background: var(--card-bg); cursor: pointer; transition: transform .2s; }
+.card:hover { transform: scale(1.1); z-index: 3; box-shadow: 0 8px 24px rgba(0,0,0,.7); }
+.card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.noimg { display: grid; place-items: center; height: 100%; padding: 10px; text-align: center; color: var(--muted); }
+.progress { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(0,0,0,.6); }
+.progress div { height: 100%; background: var(--accent); }
+
+.search-page { padding: 100px 4%; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, 170px); gap: 14px; margin-top: 16px; }
+
+.episodes { padding: 0 4%; margin-bottom: 30px; }
+.episodes h3 { margin-left: 0; }
+.ep-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.ep-head h3 { margin-bottom: 0; }
+.episode { display: flex; gap: 20px; align-items: center; padding: 18px 12px; border-bottom: 1px solid #333; cursor: pointer; border-radius: 4px; }
+.episode:hover { background: #262626; }
+.episode .num { font-size: 1.6rem; color: var(--muted); width: 36px; text-align: center; }
+.ep-title { font-weight: 600; margin-bottom: 4px; }
+.ep-ov { color: var(--muted); font-size: 14px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+.player { position: fixed; inset: 0; background: #000; }
+.player video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+.player-top { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 16px; padding: 16px 24px; background: linear-gradient(rgba(0,0,0,.8), transparent); transition: opacity .3s; pointer-events: none; }
+.player-top .btn { pointer-events: auto; }
+.player.idle .player-top { opacity: 0; } .player.idle { cursor: none; }
+.player-err { position: absolute; top: 50%; left: 0; right: 0; text-align: center; }
+
+/* ---------- theme switcher ---------- */
+.switcher { display: flex; gap: 2px; background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.2); border-radius: 999px; padding: 3px; }
+.switcher button { background: transparent; border: 0; color: var(--muted); font-size: 13px; font-weight: 600; padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+.switcher button:hover { color: #fff; }
+.switcher button.on { background: var(--accent); color: #fff; }
+
+/* ---------- landscape tiles (Hulu / HBO) ---------- */
+.card.wide { width: 300px; aspect-ratio: 16/9; }
+.card-title { position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 12px 10px; font-size: 14px; font-weight: 600; background: linear-gradient(transparent, rgba(0,0,0,.85)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card.wide .progress { bottom: 0; }
+.grid:has(.wide) { grid-template-columns: repeat(auto-fill, 300px); }
+
+/* ---------- Netflix: base styles above ---------- */
+
+/* ---------- Hulu: green, near-black, inset rounded hero, bold tiles ---------- */
+[data-theme="hulu"] { --nav-solid: #0b0c0f; --accent: #1ce783; --bg: #0b0c0f; --card-bg: #1a1d24; --radius: 8px; --btn-radius: 6px; --btn-primary-bg: #fff; --btn-primary-fg: #0b0c0f; }
+[data-theme="hulu"] .logo { font-weight: 800; letter-spacing: -1px; text-transform: lowercase; font-size: 30px; }
+[data-theme="hulu"] .nav { background: var(--bg); padding: 12px 4%; }
+[data-theme="hulu"] .switcher button.on, [data-theme="hulu"] .login .btn.primary { color: #0b0c0f; }
+[data-theme="hulu"] .hero { height: 64vh; margin: 76px 4% 0; border-radius: 12px; overflow: hidden; }
+[data-theme="hulu"] .hero-fade { background: linear-gradient(to top, rgba(11,12,15,.95) 0%, transparent 55%); }
+[data-theme="hulu"] .hero-body { max-width: 720px; padding: 0 40px 36px; }
+[data-theme="hulu"] .hero h1 { font-size: 2.8rem; }
+[data-theme="hulu"] .meta { color: var(--accent); }
+[data-theme="hulu"] .rows { margin-top: 24px; }
+[data-theme="hulu"] .rows.nohero { margin-top: 90px; }
+[data-theme="hulu"] .hero.details { margin: 76px 4% 0; }
+[data-theme="hulu"] .card:hover { transform: translateY(-4px); box-shadow: 0 0 0 3px var(--accent); }
+[data-theme="hulu"] .progress div { background: var(--accent); }
+
+/* ---------- HBO: black + violet, huge cinematic hero, minimal chrome ---------- */
+[data-theme="hbo"] { --nav-solid: #000; --accent: #8b5cf6; --bg: #000; --card-bg: #131218; --radius: 2px; --btn-radius: 2px; --btn-primary-bg: #fff; --btn-primary-fg: #000; --muted: #9a98a6; }
+[data-theme="hbo"] .logo { font-weight: 300; letter-spacing: 6px; font-size: 22px; }
+[data-theme="hbo"] .nav { background: linear-gradient(rgba(0,0,0,.9), transparent); }
+[data-theme="hbo"] .hero { height: 92vh; }
+[data-theme="hbo"] .hero-fade { background: linear-gradient(to top, #000 3%, transparent 55%), linear-gradient(to right, rgba(0,0,0,.75), transparent 55%); }
+[data-theme="hbo"] .hero h1 { font-weight: 300; letter-spacing: 4px; text-transform: uppercase; font-size: 3.2rem; }
+[data-theme="hbo"] .hero-body { padding-bottom: 12%; }
+[data-theme="hbo"] .meta { color: var(--muted); font-weight: 400; }
+[data-theme="hbo"] .row h3 { font-weight: 300; letter-spacing: 3px; text-transform: uppercase; font-size: 1rem; }
+[data-theme="hbo"] .card:hover { transform: scale(1.04); box-shadow: 0 0 0 1px var(--accent), 0 10px 30px rgba(139,92,246,.35); }
+[data-theme="hbo"] .btn { text-transform: uppercase; letter-spacing: 1px; }
+
+/* ---------- Disney+: deep navy gradient, rounded glowing cards ---------- */
+[data-theme="disney"] { --nav-solid: #040714; --accent: #2bbcff; --bg: #0a0f2e; --card-bg: #1a2150; --radius: 10px; --btn-radius: 6px; --btn-primary-bg: #f9f9f9; --btn-primary-fg: #040714; --muted: #a9b0d6; }
+[data-theme="disney"] body { background: linear-gradient(#040714, #0a0f2e 40%, #1a1d4d); background-attachment: fixed; }
+[data-theme="disney"] .logo { font-weight: 700; letter-spacing: 0; font-style: italic; font-size: 28px; color: #fff; }
+[data-theme="disney"] .nav { background: #040714; }
+[data-theme="disney"] .hero { height: 68vh; }
+/* The page background is a gradient, so fade the art itself out instead of fading to a flat colour (that left a seam). */
+[data-theme="disney"] .hero-art, [data-theme="disney"] .hero-fade { -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 100%); mask-image: linear-gradient(to bottom, #000 55%, transparent 100%); }
+[data-theme="disney"] .hero-fade { background: linear-gradient(to right, rgba(4,7,20,.8), transparent 55%); }
+[data-theme="disney"] .meta { color: var(--accent); }
+[data-theme="disney"] .row h3 { font-weight: 600; font-size: 1.15rem; }
+[data-theme="disney"] .card { border: 3px solid rgba(249,249,249,.1); box-shadow: 0 26px 30px -10px rgba(0,0,0,.69), 0 16px 10px -10px rgba(0,0,0,.73); transition: transform .25s, border-color .25s, box-shadow .25s; }
+[data-theme="disney"] .card:hover { transform: scale(1.05); border-color: rgba(249,249,249,.8); }
+[data-theme="disney"] .login { background: linear-gradient(#040714, #1a1d4d); }
+[data-theme="disney"] .switcher button.on, [data-theme="disney"] .login .btn.primary { color: #040714; }
+
+/* Keep the nav readable once content scrolls underneath it (must stay last to win over per-theme nav rules). */
+.nav.scrolled { background: var(--nav-solid); }
