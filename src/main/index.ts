@@ -25,7 +25,12 @@ function createWindow(): void {
   })
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
+    // Trailer links come from the server's metadata, so only ever hand web addresses to the system (never file:, smb: or
+    // other schemes a hostile server might put there).
+    try {
+      const u = new URL(url)
+      if (u.protocol === 'https:' || u.protocol === 'http:') shell.openExternal(u.toString())
+    } catch { /* not a URL */ }
     return { action: 'deny' }
   })
 

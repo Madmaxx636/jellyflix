@@ -1,4 +1,31 @@
-export interface Session { server: string; token: string; userId: string; userName: string }
+import { markFetched } from '../userdata'
+
+export interface Session { server: string; token: string; userId: string; userName: string; avatarTag?: string }
+
+export interface Person { Name: string; Id: string; Role?: string; Type?: string; PrimaryImageTag?: string }
+
+export interface MediaStream {
+  Index: number
+  Type: string // Video | Audio | Subtitle
+  Codec?: string
+  Language?: string
+  DisplayTitle?: string
+  Title?: string
+  IsDefault?: boolean
+  IsForced?: boolean
+  IsExternal?: boolean
+  IsTextSubtitleStream?: boolean
+  Channels?: number
+}
+
+export interface MediaSource {
+  Id: string
+  RunTimeTicks?: number
+  Container?: string
+  MediaStreams?: MediaStream[]
+  DefaultAudioStreamIndex?: number
+  DefaultSubtitleStreamIndex?: number
+}
 
 export interface Item {
   Id: string
@@ -10,6 +37,14 @@ export interface Item {
   RunTimeTicks?: number
   CommunityRating?: number
   Genres?: string[]
+  Studios?: { Name: string; Id?: string }[]
+  Taglines?: string[]
+  People?: Person[]
+  RemoteTrailers?: { Url: string; Name?: string }[]
+  MediaSources?: MediaSource[]
+  DateCreated?: string
+  PremiereDate?: string
+  ChildCount?: number
   SeriesId?: string
   SeriesName?: string
   ParentIndexNumber?: number
@@ -18,12 +53,41 @@ export interface Item {
   ParentBackdropItemId?: string
   ParentBackdropImageTags?: string[]
   BackdropImageTags?: string[]
-  UserData?: { PlaybackPositionTicks?: number; PlayedPercentage?: number; Played?: boolean }
+  UserData?: { PlaybackPositionTicks?: number; PlayedPercentage?: number; Played?: boolean; IsFavorite?: boolean }
 }
+
+/** A library ("view"): Movies, Shows, Collections… */
+export interface View { Id: string; Name: string; CollectionType?: string; Type?: string; ImageTags?: { Primary?: string } }
+
+export interface Recommendation { RecommendationType: string; BaselineItemName?: string; CategoryId?: string; Items: Item[] }
+
+/** A stretch of a video the player can skip (intro, recap, credits…), in seconds. */
+export interface Segment { type: string; start: number; end: number }
+
+export interface Prepared { playSessionId: string; source: MediaSource }
+
+export interface PublicUser { Id: string; Name: string; PrimaryImageTag?: string }
+
+export interface PublicInfo { ServerName?: string; Version?: string; ProductName?: string }
+
+export interface Query {
+  parentId?: string
+  types?: string[]
+  genres?: string[]
+  filters?: ('IsFavorite' | 'IsUnplayed' | 'IsPlayed')[]
+  sortBy?: string
+  sortOrder?: 'Ascending' | 'Descending'
+  start?: number
+  limit?: number
+  search?: string
+  personId?: string
+  recursive?: boolean
+}
+export interface Page { items: Item[]; total: number }
 
 const KEY = 'jellyflix.session'
 const DEVICE_KEY = 'jellyflix.deviceId'
-const APP_VERSION = '0.1.0'
+export const APP_VERSION = '0.1.0'
 
 function deviceId(): string {
   let id = localStorage.getItem(DEVICE_KEY)
@@ -89,7 +153,6 @@ async function req<T>(s: { server: string; token?: string }, path: string, init:
 
 // ---------- finding the server ----------
 
-interface PublicInfo { ServerName?: string; Version?: string; ProductName?: string }
 interface Hit { server: string; info: PublicInfo }
 export interface Found { server: string; info: PublicInfo | null; tried: string[] }
 
@@ -130,7 +193,7 @@ async function probe(base: string): Promise<Hit | null> {
  * hasn't answered within half a second, so a server that answers straight away is never poked at on other
  * ports. Earlier addresses win over later ones.
  */
-async function findServer(input: string): Promise<Found> {
+export async function findServer(input: string): Promise<Found> {
   const tried = addressCandidates(input)
   if (!tried.length) throw new Error(`“${input.trim()}” doesn't look like a server address. Try something like 192.168.1.10:8096 or https://jellyfin.example.com`)
   const hit = await new Promise<Hit | null>(resolve => {
@@ -175,33 +238,51 @@ function explainSignInFailure(e: unknown, f: Found): string {
 export async function login(serverInput: string, user: string, pw: string): Promise<Session> {
   const found = await findServer(serverInput)
   try {
-    const r = await req<{ AccessToken: string; User: { Id: string; Name: string } }>(
+    const r = await req<{ AccessToken: string; User: { Id: string; Name: string; PrimaryImageTag?: string } }>(
       { server: found.server }, '/Users/AuthenticateByName',
       { method: 'POST', body: JSON.stringify({ Username: user, Pw: pw }) }
     )
-    return { server: found.server, token: r.AccessToken, userId: r.User.Id, userName: r.User.Name }
+    return { server: found.server, token: r.AccessToken, userId: r.User.Id, userName: r.User.Name, avatarTag: r.User.PrimaryImageTag }
   } catch (e) {
     throw new Error(explainSignInFailure(e, found))
   }
 }
 
+/** Profiles that can be picked on the sign-in screen (users the admin hasn't hidden). Needs no sign-in. */
+export async function publicUsers(server: string): Promise<PublicUser[]> {
+  try {
+    const res = await fetch(server + '/Users/Public', { signal: AbortSignal.timeout(5000) })
+    if (!res.ok) return []
+    const list = await res.json()
+    return Array.isArray(list) ? list.filter((u: PublicUser) => u && u.Id && u.Name) : []
+  } catch { return [] }
+}
+export const publicUserImage = (server: string, u: PublicUser) =>
+  u.PrimaryImageTag ? `${server}/Users/${u.Id}/Images/Primary?maxWidth=160&tag=${u.PrimaryImageTag}` : ''
+
 // ---------- library calls ----------
 
 const FIELDS = 'Overview,Genres,ProductionYear,OfficialRating,CommunityRating,RunTimeTicks'
-type List = { Items: Item[] }
+type ListOf<T> = { Items: T[]; TotalRecordCount?: number }
+type List = ListOf<Item>
+
+type Attempt = string | [string, RequestInit]
 
 /**
- * Some routes moved: the current ones are /UserItems/Resume, /Items/Latest and /Items/{id}?userId=, while the
- * older /Users/{id}/Items/... spellings are deprecated. Try the current one first and fall back when a server
- * doesn't know it (404/405), remembering which spelling worked for that server.
+ * Some routes moved: the current ones are /UserItems/Resume, /Items/Latest, /Items/{id}?userId=,
+ * /UserViews and /UserFavoriteItems/{id}, while the older /Users/{id}/... spellings are deprecated.
+ * Try the current one first and fall back when a server doesn't know it (404/405), remembering which
+ * spelling worked for that server.
  */
 const worked = new Map<string, number>()
-async function firstThatExists<T>(s: Session, name: string, paths: string[]): Promise<T> {
+async function firstThatExists<T>(s: Session, name: string, attempts: Attempt[]): Promise<T> {
   const key = `${s.server}|${name}`
-  const order = [...new Set([worked.get(key) ?? 0, ...paths.keys()])]
+  const order = [...new Set([worked.get(key) ?? 0, ...attempts.keys()])]
   let last: unknown
   for (const i of order) {
-    try { const r = await req<T>(s, paths[i]); worked.set(key, i); return r } catch (e) {
+    const a = attempts[i]
+    const [path, init] = typeof a === 'string' ? [a, undefined] : a
+    try { const r = await req<T>(s, path, init); worked.set(key, i); return r } catch (e) {
       last = e
       if (!(e instanceof HttpError && (e.status === 404 || e.status === 405))) throw e
     }
@@ -209,63 +290,171 @@ async function firstThatExists<T>(s: Session, name: string, paths: string[]): Pr
   throw last
 }
 
-export const api = (s: Session) => ({
-  resume: () => firstThatExists<List>(s, 'resume', [
-    `/UserItems/Resume?userId=${s.userId}&Limit=20&MediaTypes=Video&Fields=${FIELDS}`,
-    `/Users/${s.userId}/Items/Resume?Limit=20&MediaTypes=Video&Fields=${FIELDS}`
-  ]).then(r => r.Items),
-  nextUp: () => req<List>(s, `/Shows/NextUp?UserId=${s.userId}&Limit=20&Fields=${FIELDS}`).then(r => r.Items),
-  latest: (type: 'Movie' | 'Series') => firstThatExists<Item[]>(s, 'latest', [
-    `/Items/Latest?userId=${s.userId}&Limit=20&IncludeItemTypes=${type}&Fields=${FIELDS}`,
-    `/Users/${s.userId}/Items/Latest?Limit=20&IncludeItemTypes=${type}&Fields=${FIELDS}`
-  ]),
-  genres: () =>
-    req<List>(s, `/Genres?UserId=${s.userId}&IncludeItemTypes=Movie,Series&SortBy=SortName`).then(r => r.Items.map(g => g.Name)),
-  byGenre: (genre: string) =>
-    req<List>(s, `/Items?userId=${s.userId}&Recursive=true&IncludeItemTypes=Movie,Series&Genres=${encodeURIComponent(genre)}&SortBy=Random&Limit=20&Fields=${FIELDS}`).then(r => r.Items),
-  search: (q: string) =>
-    req<List>(s, `/Items?userId=${s.userId}&Recursive=true&IncludeItemTypes=Movie,Series&SearchTerm=${encodeURIComponent(q)}&Limit=40&Fields=${FIELDS}`).then(r => r.Items),
-  item: (id: string) => firstThatExists<Item>(s, 'item', [
-    `/Items/${id}?userId=${s.userId}`,
-    `/Users/${s.userId}/Items/${id}`
-  ]),
-  episodes: (seriesId: string) =>
-    req<List>(s, `/Shows/${seriesId}/Episodes?UserId=${s.userId}&Fields=Overview`).then(r => r.Items),
-  similar: (id: string) => req<List>(s, `/Items/${id}/Similar?UserId=${s.userId}&Limit=12`).then(r => r.Items),
+function itemsQuery(s: Session, q: Query): string {
+  const p = new URLSearchParams({ userId: s.userId, Fields: FIELDS, EnableTotalRecordCount: 'true' })
+  if (q.recursive !== false) p.set('Recursive', 'true')
+  if (q.parentId) p.set('ParentId', q.parentId)
+  if (q.types?.length) p.set('IncludeItemTypes', q.types.join(','))
+  if (q.genres?.length) p.set('Genres', q.genres.join('|'))
+  if (q.filters?.length) p.set('Filters', q.filters.join(','))
+  if (q.sortBy) { p.set('SortBy', q.sortBy); p.set('SortOrder', q.sortOrder ?? 'Ascending') }
+  if (q.start) p.set('StartIndex', String(q.start))
+  if (q.limit) p.set('Limit', String(q.limit))
+  if (q.search) p.set('SearchTerm', q.search)
+  if (q.personId) p.set('PersonIds', q.personId)
+  return p.toString()
+}
 
-  poster: (it: Item, w = 400) => {
-    // Episode stills are 16:9, so on tall cards use the show's own poster instead.
-    if (it.Type === 'Episode' && it.SeriesId) return `${s.server}/Items/${it.SeriesId}/Images/Primary?maxWidth=${w}`
-    return it.ImageTags?.Primary ? `${s.server}/Items/${it.Id}/Images/Primary?maxWidth=${w}&tag=${it.ImageTags.Primary}` : ''
-  },
-  /** Wide 16:9 art for landscape tiles: Thumb, else Backdrop, else Primary. */
-  thumb: (it: Item, w = 600) => {
-    if (it.ImageTags?.Thumb) return `${s.server}/Items/${it.Id}/Images/Thumb?maxWidth=${w}&tag=${it.ImageTags.Thumb}`
-    if (it.BackdropImageTags?.[0]) return `${s.server}/Items/${it.Id}/Images/Backdrop?maxWidth=${w}&tag=${it.BackdropImageTags[0]}`
-    if (it.ParentBackdropItemId && it.ParentBackdropImageTags?.[0])
-      return `${s.server}/Items/${it.ParentBackdropItemId}/Images/Backdrop?maxWidth=${w}&tag=${it.ParentBackdropImageTags[0]}`
-    return it.ImageTags?.Primary ? `${s.server}/Items/${it.Id}/Images/Primary?maxWidth=${w}&tag=${it.ImageTags.Primary}` : ''
-  },
-  backdrop: (it: Item, w = 1920) => {
-    if (it.BackdropImageTags?.[0]) return `${s.server}/Items/${it.Id}/Images/Backdrop?maxWidth=${w}&tag=${it.BackdropImageTags[0]}`
-    if (it.SeriesId) return `${s.server}/Items/${it.SeriesId}/Images/Backdrop?maxWidth=${w}`
-    return ''
-  },
+/** Stamp every title in a response with when it was asked for (see userdata.ts). */
+function stamp(v: unknown, t0: number) {
+  if (Array.isArray(v)) v.forEach(x => stamp(x, t0))
+  else if (v && typeof v === 'object') {
+    const o = v as { Items?: unknown; items?: unknown; Id?: unknown }
+    const list = Array.isArray(o.Items) ? o.Items : Array.isArray(o.items) ? o.items : null
+    if (list) markFetched(list as Item[], t0)
+    else if (typeof o.Id === 'string') markFetched([v as Item], t0)
+  }
+}
+const tracked = async <T,>(p: Promise<T>): Promise<T> => { const t0 = Date.now(); const r = await p; stamp(r, t0); return r }
 
-  async streamUrl(id: string): Promise<{ url: string; playSessionId: string; mediaSourceId: string }> {
-    const info = await req<{ PlaySessionId: string; MediaSources: { Id: string }[] }>(
-      s, `/Items/${id}/PlaybackInfo?UserId=${s.userId}`, { method: 'POST', body: JSON.stringify({}) })
-    const ms = info.MediaSources[0].Id
-    // The video element can't send headers, so the token goes in the URL as ApiKey (12.x ignores the old api_key spelling).
-    const p = new URLSearchParams({
-      MediaSourceId: ms, PlaySessionId: info.PlaySessionId, ApiKey: s.token, DeviceId: deviceId(),
-      VideoCodec: 'h264', AudioCodec: 'aac,mp3', TranscodingMaxAudioChannels: '2', SegmentContainer: 'ts'
-    })
-    return { url: `${s.server}/Videos/${id}/master.m3u8?${p}`, playSessionId: info.PlaySessionId, mediaSourceId: ms }
-  },
-  report: (kind: 'Playing' | 'Progress' | 'Stopped', body: object) =>
-    req<void>(s, `/Sessions/Playing${kind === 'Playing' ? '' : '/' + kind}`, { method: 'POST', body: JSON.stringify(body) }).catch(() => {})
-})
+export const api = (s: Session) => {
+  const image = (id: string, tag: string | undefined, w: number, type = 'Primary') =>
+    `${s.server}/Items/${id}/Images/${type}?maxWidth=${w}${tag ? `&tag=${tag}` : ''}`
+
+  const flag = (kind: 'Favorite' | 'Played') => (id: string, on: boolean) => {
+    const method = on ? 'POST' : 'DELETE'
+    return firstThatExists<unknown>(s, `${kind}-${method}`, [
+      [kind === 'Favorite' ? `/UserFavoriteItems/${id}?userId=${s.userId}` : `/UserPlayedItems/${id}?userId=${s.userId}`, { method }],
+      [`/Users/${s.userId}/${kind === 'Favorite' ? 'FavoriteItems' : 'PlayedItems'}/${id}`, { method }]
+    ])
+  }
+
+  const raw = {
+    // ----- home rows -----
+    resume: () => firstThatExists<List>(s, 'resume', [
+      `/UserItems/Resume?userId=${s.userId}&Limit=20&MediaTypes=Video&Fields=${FIELDS}`,
+      `/Users/${s.userId}/Items/Resume?Limit=20&MediaTypes=Video&Fields=${FIELDS}`
+    ]).then(r => r.Items),
+    nextUp: () => req<List>(s, `/Shows/NextUp?UserId=${s.userId}&Limit=20&Fields=${FIELDS}`).then(r => r.Items),
+    latest: (type: 'Movie' | 'Series') => firstThatExists<Item[]>(s, 'latest', [
+      `/Items/Latest?userId=${s.userId}&Limit=20&IncludeItemTypes=${type}&Fields=${FIELDS}`,
+      `/Users/${s.userId}/Items/Latest?Limit=20&IncludeItemTypes=${type}&Fields=${FIELDS}`
+    ]),
+    recommendations: () =>
+      req<Recommendation[]>(s, `/Movies/Recommendations?userId=${s.userId}&categoryLimit=3&itemLimit=14&Fields=${FIELDS}`).catch(() => [] as Recommendation[]),
+
+    // ----- browsing -----
+    items: async (q: Query): Promise<Page> => {
+      const r = await req<List>(s, `/Items?${itemsQuery(s, q)}`)
+      return { items: r.Items, total: r.TotalRecordCount ?? r.Items.length }
+    },
+    views: () => firstThatExists<ListOf<View>>(s, 'views', [`/UserViews?userId=${s.userId}`, `/Users/${s.userId}/Views`]).then(r => r.Items),
+    genres: (opts: { parentId?: string; types?: string[] } = {}) => {
+      const p = new URLSearchParams({ userId: s.userId, SortBy: 'SortName', SortOrder: 'Ascending', IncludeItemTypes: (opts.types ?? ['Movie', 'Series']).join(',') })
+      if (opts.parentId) p.set('ParentId', opts.parentId)
+      return req<ListOf<{ Name: string }>>(s, `/Genres?${p}`).then(r => r.Items.map(g => g.Name))
+    },
+    byGenre: (genre: string) =>
+      req<List>(s, `/Items?${itemsQuery(s, { types: ['Movie', 'Series'], genres: [genre], sortBy: 'Random', limit: 20 })}`).then(r => r.Items),
+    search: (q: string, types: string[] = ['Movie', 'Series']) =>
+      req<List>(s, `/Items?${itemsQuery(s, { types, search: q, limit: 60 })}`).then(r => r.Items),
+    searchPeople: (q: string) =>
+      req<List>(s, `/Items?${itemsQuery(s, { types: ['Person'], search: q, limit: 24 })}`).then(r => r.Items).catch(() => [] as Item[]),
+
+    // ----- one title -----
+    item: (id: string) => firstThatExists<Item>(s, 'item', [`/Items/${id}?userId=${s.userId}`, `/Users/${s.userId}/Items/${id}`]),
+    episodes: (seriesId: string) =>
+      req<List>(s, `/Shows/${seriesId}/Episodes?UserId=${s.userId}&Fields=Overview,RunTimeTicks`).then(r => r.Items),
+    similar: (id: string) => req<List>(s, `/Items/${id}/Similar?UserId=${s.userId}&Limit=12`).then(r => r.Items),
+    /** Trailers and behind-the-scenes clips stored next to the title. */
+    extras: async (id: string): Promise<Item[]> => {
+      const [features, trailers] = await Promise.all([
+        req<Item[]>(s, `/Items/${id}/SpecialFeatures?userId=${s.userId}`).catch(() => [] as Item[]),
+        req<Item[]>(s, `/Items/${id}/LocalTrailers?userId=${s.userId}`).catch(() => [] as Item[])
+      ])
+      return [...trailers, ...features]
+    },
+    /** What to play for a show: the next unwatched episode, else the first. */
+    nextEpisode: async (seriesId: string): Promise<Item | null> => {
+      try {
+        const r = await req<List>(s, `/Shows/NextUp?UserId=${s.userId}&SeriesId=${seriesId}&Limit=1&Fields=${FIELDS}`)
+        if (r.Items[0]) return r.Items[0]
+      } catch { /* fall through to the episode list */ }
+      const eps = await req<List>(s, `/Shows/${seriesId}/Episodes?UserId=${s.userId}&Fields=Overview`).then(r => r.Items).catch(() => [] as Item[])
+      return eps.find(e => !e.UserData?.Played) ?? eps[0] ?? null
+    },
+
+    // ----- My List and watched -----
+    setFavorite: flag('Favorite'),
+    setPlayed: flag('Played'),
+
+    // ----- images -----
+    image,
+    poster: (it: Item, w = 400) => {
+      // Episode stills are 16:9, so on tall cards use the show's own poster instead.
+      if (it.Type === 'Episode' && it.SeriesId) return `${s.server}/Items/${it.SeriesId}/Images/Primary?maxWidth=${w}`
+      return it.ImageTags?.Primary ? image(it.Id, it.ImageTags.Primary, w) : ''
+    },
+    /** Wide 16:9 art for landscape tiles: Thumb, else Backdrop, else Primary. */
+    thumb: (it: Item, w = 600) => {
+      if (it.ImageTags?.Thumb) return image(it.Id, it.ImageTags.Thumb, w, 'Thumb')
+      if (it.BackdropImageTags?.[0]) return image(it.Id, it.BackdropImageTags[0], w, 'Backdrop')
+      if (it.ParentBackdropItemId && it.ParentBackdropImageTags?.[0]) return image(it.ParentBackdropItemId, it.ParentBackdropImageTags[0], w, 'Backdrop')
+      return it.ImageTags?.Primary ? image(it.Id, it.ImageTags.Primary, w) : ''
+    },
+    backdrop: (it: Item, w = 1920) => {
+      if (it.BackdropImageTags?.[0]) return image(it.Id, it.BackdropImageTags[0], w, 'Backdrop')
+      if (it.SeriesId) return `${s.server}/Items/${it.SeriesId}/Images/Backdrop?maxWidth=${w}`
+      return ''
+    },
+    personImage: (p: Person, w = 240) => (p.PrimaryImageTag ? image(p.Id, p.PrimaryImageTag, w) : ''),
+    avatar: () => (s.avatarTag ? `${s.server}/Users/${s.userId}/Images/Primary?maxWidth=96&tag=${s.avatarTag}` : ''),
+
+    // ----- playback -----
+    segments: async (id: string): Promise<Segment[]> => {
+      try {
+        const r = await req<ListOf<{ Type: string | number; StartTicks: number; EndTicks: number }>>(s, `/MediaSegments/${id}`)
+        return r.Items.map(x => ({ type: String(x.Type), start: x.StartTicks / 1e7, end: x.EndTicks / 1e7 }))
+      } catch { return [] }
+    },
+    prepare: async (id: string): Promise<Prepared> => {
+      const info = await req<{ PlaySessionId: string; MediaSources: MediaSource[] }>(
+        s, `/Items/${id}/PlaybackInfo?UserId=${s.userId}`, { method: 'POST', body: JSON.stringify({}) })
+      return { playSessionId: info.PlaySessionId, source: info.MediaSources[0] }
+    },
+    /**
+     * The HLS stream. The video element can't send headers, so the token goes in the URL as ApiKey (12.x
+     * ignores the old api_key spelling). Choosing an audio track or a quality asks the server to re-encode.
+     */
+    hlsUrl: (id: string, prep: Prepared, o: { audio?: number; burnSubtitle?: number; bitrate?: number } = {}) => {
+      const p = new URLSearchParams({
+        MediaSourceId: prep.source.Id, PlaySessionId: prep.playSessionId, ApiKey: s.token, DeviceId: deviceId(),
+        VideoCodec: 'h264', AudioCodec: 'aac,mp3', TranscodingMaxAudioChannels: '2', SegmentContainer: 'ts'
+      })
+      if (o.audio != null) p.set('AudioStreamIndex', String(o.audio))
+      if (o.burnSubtitle != null) { p.set('SubtitleStreamIndex', String(o.burnSubtitle)); p.set('SubtitleMethod', 'Encode') }
+      if (o.bitrate) { p.set('VideoBitRate', String(o.bitrate)); p.set('MaxStreamingBitrate', String(o.bitrate + 192_000)) }
+      return `${s.server}/Videos/${id}/master.m3u8?${p}`
+    },
+    /** Text subtitles as WebVTT, which the video element can show on its own. */
+    subtitleUrl: (id: string, mediaSourceId: string, index: number) =>
+      `${s.server}/Videos/${id}/${mediaSourceId}/Subtitles/${index}/0/Stream.vtt?ApiKey=${s.token}`,
+    report: (kind: 'Playing' | 'Progress' | 'Stopped', body: object) =>
+      req<void>(s, `/Sessions/Playing${kind === 'Playing' ? '' : '/' + kind}`, { method: 'POST', body: JSON.stringify(body) }).catch(() => {}),
+
+    // ----- about -----
+    publicInfo: () => fetch(`${s.server}/System/Info/Public`, { signal: AbortSignal.timeout(8000) }).then(r => r.json() as Promise<PublicInfo>)
+  }
+
+  // Anything that returns titles is stamped with when it was asked for, so a My List or watched change made later
+  // in this session is applied to older copies on screen but never to fresher data from the server.
+  const stamped = ['resume', 'nextUp', 'latest', 'recommendations', 'items', 'byGenre', 'search', 'searchPeople', 'item', 'episodes', 'similar', 'extras', 'nextEpisode'] as const
+  for (const k of stamped) {
+    const f = raw[k] as (...a: never[]) => Promise<unknown>
+    ;(raw as Record<string, unknown>)[k] = (...a: never[]) => tracked(f(...a))
+  }
+  return raw
+}
 
 export type Api = ReturnType<typeof api>
 export const ticksToMin = (t?: number) => (t ? Math.round(t / 600_000_000) : 0)

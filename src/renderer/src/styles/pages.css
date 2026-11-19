@@ -1,0 +1,158 @@
+/* ===== page frame ===== */
+.page { padding: calc(var(--nav-h) + 28px) 4% 70px; }
+.page-title { font-size: 2rem; margin: 0 0 18px; }
+.count { color: var(--muted); font-size: 14px; margin: 18px 0; }
+.empty { color: var(--muted); font-size: 1.1rem; padding: 30px 0; }
+select { background: var(--surface); color: #fff; border: 1px solid var(--line); border-radius: var(--btn-radius); padding: 8px 12px; font-size: 14px; max-width: 320px; }
+select:focus { outline: 2px solid var(--accent); }
+[data-theme="hbo"] .page-title { font-weight: 300; letter-spacing: 4px; text-transform: uppercase; font-size: 1.6rem; }
+
+/* ===== browse: toolbar and grid ===== */
+.browse-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 16px; }
+.browse-head .page-title { margin: 0; }
+.browse-tools { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.tool { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.seg button { background: none; border: 0; color: var(--muted); padding: 7px 14px; cursor: pointer; font-size: 13px; font-weight: 600; }
+.seg button:hover { color: #fff; }
+.seg button.on { background: var(--accent); color: var(--on-accent); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, var(--card-w)); gap: 18px 12px; justify-content: start; margin-top: 10px; }
+.grid:has(.wide) { grid-template-columns: repeat(auto-fill, var(--card-wide-w)); }
+.sentinel { height: 1px; }
+
+/* ===== library, genre and brand tiles ===== */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 30px; }
+.tiles.genres { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.tile { position: relative; display: grid; align-items: end; aspect-ratio: 16 / 9; border-radius: var(--radius); overflow: hidden; text-decoration: none; color: #fff;
+  background: linear-gradient(135deg, hsl(var(--h) 55% 32%), hsl(calc(var(--h) + 40) 60% 14%)); transition: transform .2s, box-shadow .2s; }
+.tile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .85; }
+.tile::after { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent 40%, rgba(0, 0, 0, .72)); }
+.tile-name { position: relative; z-index: 1; padding: 14px 16px; font-size: 1.15rem; font-weight: 700; }
+.tile:hover { transform: scale(1.03); box-shadow: 0 10px 30px rgba(0, 0, 0, .6); }
+[data-theme="hulu"] .tile { align-items: center; justify-items: center; text-align: center; border-radius: 12px; }
+[data-theme="hulu"] .tile:hover { box-shadow: 0 0 0 3px var(--accent); }
+[data-theme="hbo"] .tile { align-items: center; justify-items: center; text-align: center; border: 1px solid var(--line); }
+[data-theme="hbo"] .tile-name { font-weight: 300; letter-spacing: 4px; text-transform: uppercase; font-size: 1rem; }
+[data-theme="hbo"] .tile:hover { box-shadow: 0 0 0 1px var(--accent), 0 10px 30px rgba(139, 92, 246, .35); transform: none; }
+[data-theme="disney"] .tile { border: 3px solid rgba(249, 249, 249, .12); border-radius: 12px; align-items: center; justify-items: center; text-align: center; box-shadow: 0 16px 20px -10px rgba(0, 0, 0, .6); }
+[data-theme="disney"] .tile:hover { border-color: rgba(249, 249, 249, .85); transform: scale(1.05); }
+[data-theme="disney"] .tile-name { font-size: 1.25rem; letter-spacing: .5px; }
+.brand-row .tile { aspect-ratio: 16 / 10; margin: 0; }
+.brand-row .tile.misc { background: linear-gradient(135deg, #1a2150, #0a0f2e); }
+.brand-row .tile.misc.alt { background: linear-gradient(135deg, #2a1a50, #0a0f2e); }
+
+/* ===== a person ===== */
+.person-head { display: flex; gap: 22px; align-items: flex-start; margin: 4px 0 22px; }
+.person-head img { width: 140px; height: 140px; border-radius: 50%; object-fit: cover; flex: none; }
+.person-head p { max-width: 760px; color: #ddd; line-height: 1.5; margin: 0; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* ===== search ===== */
+.search-input { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--btn-radius); padding: 10px 16px; max-width: 760px; margin-bottom: 14px; }
+.search-input input { flex: 1; background: transparent; border: 0; outline: 0; color: #fff; font-size: 1.3rem; padding: 6px 0; }
+/* Netflix and Hulu search from the top bar */
+[data-theme="netflix"] .search-input, [data-theme="hulu"] .search-input { display: none; }
+.seg.chips { margin-bottom: 18px; }
+.recent { margin-bottom: 22px; }
+.recent h3 { margin: 0 0 10px; font-size: 1rem; color: var(--muted); }
+.recent .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.recent .chips button { background: var(--surface); border: 1px solid var(--line); color: #ddd; border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.recent .chips button:hover { border-color: #fff; color: #fff; }
+.sec-title { margin: 22px 0 8px; }
+.people { display: flex; gap: 18px; flex-wrap: wrap; }
+.person { display: grid; gap: 8px; justify-items: center; width: 110px; color: #ddd; text-decoration: none; font-size: 13px; text-align: center; }
+.person img, .person .ph, .cast-member img, .cast-member .ph { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; background: var(--card-bg); display: grid; place-items: center; font-size: 34px; }
+
+/* ===== a title ===== */
+.rows.details-body { margin-top: -4vh; }
+[data-theme="hulu"] .rows.details-body { margin-top: 20px; }
+.tabs { display: flex; gap: 6px; padding: 0 4%; margin: 0 0 18px; border-bottom: 1px solid var(--line); }
+.tabs button { background: none; border: 0; color: var(--muted); padding: 14px 18px; cursor: pointer; font-size: 15px; font-weight: 700; border-bottom: 3px solid transparent; margin-bottom: -1px; }
+.tabs button:hover { color: #fff; }
+.tabs button.on { color: #fff; border-bottom-color: var(--accent); }
+[data-theme="hbo"] .tabs button { text-transform: uppercase; letter-spacing: 2px; font-size: 12px; font-weight: 600; }
+[data-theme="disney"] .tabs button { text-transform: uppercase; letter-spacing: 1.5px; font-size: 13px; }
+.episodes, .extras, .about { padding: 0 4%; margin-bottom: 30px; }
+.episodes h3, .extras h3, .about h3 { margin: 0 0 10px; font-size: 1.3rem; }
+.ep-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.ep-head h3 { margin: 0; }
+.episode { display: flex; gap: 18px; align-items: center; padding: 14px 12px; border-bottom: 1px solid var(--line); cursor: pointer; border-radius: var(--radius); }
+.episode:hover { background: rgba(255, 255, 255, .06); }
+.episode .num { font-size: 1.5rem; color: var(--muted); width: 34px; text-align: center; flex: none; }
+.ep-thumb { position: relative; width: 168px; aspect-ratio: 16 / 9; flex: none; background: var(--card-bg); border-radius: var(--radius); overflow: hidden; }
+.ep-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ep-play { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(0, 0, 0, .45); opacity: 0; transition: opacity .15s; }
+.episode:hover .ep-play { opacity: 1; }
+.ep-body { flex: 1; min-width: 0; }
+.ep-title { font-weight: 600; margin-bottom: 4px; }
+.ep-ov { color: var(--muted); font-size: 14px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ep-time { color: var(--muted); font-size: 14px; white-space: nowrap; }
+.ep-watched { background: none; border: 2px solid var(--line); color: var(--muted); width: 34px; height: 34px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; flex: none; padding: 0; }
+.ep-watched:hover { color: #fff; border-color: #fff; }
+.ep-watched.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.extras-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.extra { background: none; border: 0; color: #fff; text-align: left; cursor: pointer; display: grid; gap: 8px; padding: 0; }
+.extra-thumb { position: relative; aspect-ratio: 16 / 9; background: var(--card-bg); border-radius: var(--radius); overflow: hidden; display: grid; place-items: center; }
+.extra-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.extra-thumb .icon { position: relative; z-index: 1; }
+.extra-name { font-weight: 600; }
+.about h4 { margin: 18px 0 10px; font-size: 1rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.cast { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 8px; }
+.cast-member { display: grid; gap: 4px; justify-items: center; align-content: start; width: 120px; flex: none; text-decoration: none; color: #fff; text-align: center; }
+.cast-member b { font-size: 13px; }
+.cast-member small { color: var(--muted); font-size: 12px; }
+.facts { display: grid; grid-template-columns: 140px 1fr; gap: 10px 24px; margin: 22px 0 0; max-width: 900px; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; }
+
+/* ===== settings ===== */
+.set-layout { display: grid; gap: 28px; }
+.set-nav { display: none; }
+.set-section { margin-bottom: 36px; scroll-margin-top: calc(var(--nav-h) + 16px); }
+.set-section h2 { font-size: 1.25rem; margin: 0 0 12px; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.set-label { display: grid; gap: 3px; min-width: 0; }
+.set-label b { font-weight: 600; }
+.set-label small { color: var(--muted); font-size: 13px; line-height: 1.35; }
+.set-control { flex: none; display: flex; align-items: center; gap: 10px; }
+.set-value { color: var(--muted); max-width: 440px; text-align: right; word-break: break-all; }
+.toggle { position: relative; display: inline-block; width: 48px; height: 26px; cursor: pointer; }
+.toggle input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; width: 100%; height: 100%; }
+.toggle .track { position: absolute; inset: 0; border-radius: 999px; background: #555; transition: background .2s; }
+.toggle .thumb { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .2s; }
+.toggle input:checked + .track { background: var(--accent); }
+.toggle input:checked + .track .thumb { transform: translateX(22px); }
+.toggle input:focus-visible + .track { outline: 2px solid #fff; }
+
+/* Netflix "Account": a label column on the left, the options on the right, thin rules between sections */
+.settings-lines .set-section { display: grid; grid-template-columns: 260px 1fr; column-gap: 24px; border-top: 1px solid var(--line); padding-top: 22px; margin-bottom: 8px; }
+.settings-lines .set-section h2 { grid-column: 1; grid-row: 1 / span 20; color: var(--muted); font-size: 1rem; letter-spacing: 1px; text-transform: uppercase; margin: 8px 0 0; }
+.settings-lines .set-row { grid-column: 2; }
+.settings-lines .set-body { max-width: 1000px; }
+
+/* Hulu "Account": each section is a card */
+.settings-cards .set-body { max-width: 880px; }
+.settings-cards .set-section { background: var(--surface); border-radius: 14px; padding: 20px 26px 8px; }
+.settings-cards .set-row:last-child { border-bottom: 0; }
+
+/* HBO "Settings": a menu on the left that jumps between sections */
+.settings-sidebar .set-layout { grid-template-columns: 220px 1fr; align-items: start; }
+.settings-sidebar .set-nav { display: flex; flex-direction: column; position: sticky; top: calc(var(--nav-h) + 20px); gap: 2px; }
+.settings-sidebar .set-nav button { text-align: left; background: none; border: 0; border-left: 2px solid transparent; color: var(--muted); padding: 10px 14px; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; font-size: 12px; }
+.settings-sidebar .set-nav button:hover { color: #fff; border-left-color: var(--accent); }
+.settings-sidebar .set-section h2 { text-transform: uppercase; letter-spacing: 3px; font-weight: 300; font-size: 1rem; }
+.settings-sidebar .set-body { max-width: 860px; }
+
+/* Disney+ "App Settings": one centred list of rounded rows */
+.settings-list .page-title { text-align: center; }
+.settings-list .set-body { max-width: 760px; margin: 0 auto; }
+.settings-list .set-section h2 { text-transform: uppercase; letter-spacing: 1.5px; font-size: 1rem; margin-bottom: 10px; }
+.settings-list .set-row { background: var(--surface); border: 1px solid transparent; border-radius: 10px; padding: 16px 20px; margin-bottom: 8px; }
+.settings-list .set-row:hover { border-color: rgba(249, 249, 249, .45); }
+
+@media (max-width: 900px) {
+  .settings-lines .set-section { grid-template-columns: 1fr; }
+  .settings-lines .set-section h2 { grid-row: auto; }
+  .settings-lines .set-row { grid-column: 1; }
+  .settings-sidebar .set-layout { grid-template-columns: 1fr; }
+  .settings-sidebar .set-nav { flex-direction: row; flex-wrap: wrap; position: static; }
+}

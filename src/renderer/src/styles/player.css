@@ -1,0 +1,66 @@
+.player { position: fixed; inset: 0; background: #000; overflow: hidden; color: #fff; user-select: none; }
+.player video { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
+.player video::cue { background: rgba(0, 0, 0, .72); color: #fff; font-size: 1.5rem; line-height: 1.3; }
+.pc-top, .pc-bar, .pc-center { transition: opacity .3s; }
+.pc-top { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 12px; padding: 14px 22px; background: linear-gradient(rgba(0, 0, 0, .8), transparent); }
+.pc-title { font-size: 1.05rem; font-weight: 600; }
+.pc-btn { background: none; border: 0; color: #fff; cursor: pointer; padding: 6px; display: inline-grid; place-items: center; border-radius: 50%; opacity: .92; }
+.pc-btn:hover { opacity: 1; background: rgba(255, 255, 255, .14); }
+.pc-bar { position: absolute; left: 0; right: 0; bottom: 0; padding: 44px 22px 14px; background: linear-gradient(transparent, rgba(0, 0, 0, .86)); }
+.pc-scrub { position: relative; height: 18px; cursor: pointer; touch-action: none; }
+.pc-scrub::before { content: ""; position: absolute; left: 0; right: 0; top: 7px; height: 4px; background: rgba(255, 255, 255, .28); border-radius: 2px; }
+.pc-scrub .buf, .pc-scrub .pos, .pc-scrub .mark { position: absolute; top: 7px; height: 4px; border-radius: 2px; }
+.pc-scrub .buf { left: 0; background: rgba(255, 255, 255, .42); }
+.pc-scrub .pos { left: 0; background: var(--accent); }
+.pc-scrub .mark { background: rgba(255, 214, 10, .85); border-radius: 0; }
+.pc-scrub .knob { position: absolute; top: 3px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--accent); transform: scale(0); transition: transform .15s; }
+.pc-scrub:hover .knob { transform: scale(1); }
+.pc-scrub:hover::before, .pc-scrub:hover .buf, .pc-scrub:hover .pos, .pc-scrub:hover .mark { top: 6px; height: 6px; }
+.pc-scrub .tip { position: absolute; bottom: 22px; transform: translateX(-50%); background: rgba(0, 0, 0, .88); padding: 3px 8px; border-radius: 4px; font-size: 12px; pointer-events: none; }
+.pc-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; }
+.pc-left, .pc-right { display: flex; align-items: center; gap: 4px; flex: none; }
+.pc-mid { flex: 1; text-align: center; opacity: .85; font-size: .95rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 0 12px; }
+.pc-vol { width: 80px; accent-color: var(--accent); }
+.pc-time { font-size: 13px; margin-left: 10px; }
+.pc-time span { opacity: .65; }
+.pc-center { display: none; }
+.pc-loading, .pc-err { position: absolute; top: 50%; left: 0; right: 0; text-align: center; transform: translateY(-50%); font-size: 1.05rem; pointer-events: none; }
+.pc-err { color: #ff6b6b; padding: 0 40px; }
+
+.pc-skip { position: absolute; right: 4%; bottom: 128px; background: rgba(20, 20, 20, .82); color: #fff; border: 2px solid rgba(255, 255, 255, .7); padding: 12px 26px; font-size: 1rem; font-weight: 700; cursor: pointer; border-radius: var(--btn-radius); }
+.pc-skip:hover { background: #fff; color: #000; }
+.pc-next { position: absolute; right: 4%; bottom: 128px; width: 380px; background: rgba(15, 15, 15, .94); border: 1px solid rgba(255, 255, 255, .2); border-radius: var(--radius); }
+.pc-next-body { display: flex; gap: 12px; align-items: center; width: 100%; background: none; border: 0; color: #fff; text-align: left; padding: 10px 34px 10px 10px; cursor: pointer; }
+.pc-next-body img, .pc-next-body .ph { width: 120px; aspect-ratio: 16 / 9; object-fit: cover; background: var(--card-bg); border-radius: 4px; display: grid; place-items: center; flex: none; }
+.pc-next-body small { display: block; color: var(--muted); }
+.pc-next-body b { display: block; margin-top: 2px; font-size: 14px; }
+.pc-next-x { position: absolute; top: 4px; right: 4px; background: none; border: 0; color: #fff; cursor: pointer; padding: 4px; opacity: .7; }
+.pc-next-x:hover { opacity: 1; }
+.pc-end { position: absolute; inset: 0; display: flex; gap: 14px; align-items: center; justify-content: center; background: rgba(0, 0, 0, .6); }
+
+.pc-menu { position: absolute; right: 22px; bottom: 100px; z-index: 5; background: rgba(10, 10, 10, .96); border: 1px solid rgba(255, 255, 255, .18); border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; min-width: 180px; max-height: 60vh; overflow: auto; }
+.pc-menu h4 { margin: 0 0 8px 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+.pc-menu button { background: none; border: 0; color: #ddd; text-align: left; padding: 8px 12px; cursor: pointer; border-radius: 4px; font-size: 14px; }
+.pc-menu button:hover { background: rgba(255, 255, 255, .1); color: #fff; }
+.pc-menu button.on { color: var(--accent); font-weight: 700; }
+.pc-menu.tracks { flex-direction: row; gap: 28px; }
+.pc-menu .col { display: flex; flex-direction: column; min-width: 190px; }
+.pc-menu.eps { min-width: 320px; }
+
+.player.idle { cursor: none; }
+.player.idle .pc-top, .player.idle .pc-bar, .player.idle .pc-center { opacity: 0; pointer-events: none; }
+
+/* ===== per look ===== */
+.player[data-look="hulu"] .pc-scrub { height: 22px; }
+.player[data-look="hulu"] .pc-bar { background: linear-gradient(transparent, rgba(11, 12, 15, .95)); }
+.player[data-look="hbo"] .pc-title, .player[data-look="hbo"] .pc-mid { text-transform: uppercase; letter-spacing: 3px; font-weight: 300; font-size: .85rem; }
+.player[data-look="hbo"] .pc-scrub .pos, .player[data-look="hbo"] .pc-scrub .knob { background: #fff; }
+.player[data-look="hbo"] .pc-bar { background: linear-gradient(transparent, rgba(0, 0, 0, .95)); }
+.player[data-look="hbo"] .pc-btn { border-radius: 2px; }
+.player[data-look="disney"] .pc-bar { background: linear-gradient(transparent, rgba(4, 7, 20, .95)); }
+.player[data-look="disney"] .pc-center { display: flex; position: absolute; inset: 0; align-items: center; justify-content: center; gap: 56px; pointer-events: none; }
+.player[data-look="disney"] .pc-center .pc-btn { pointer-events: auto; background: rgba(4, 7, 20, .55); padding: 16px; }
+.player[data-look="disney"] .pc-center .pc-btn.big { padding: 22px; }
+.player[data-look="disney"] .pc-center .pc-btn:hover { background: rgba(4, 7, 20, .85); }
+.player[data-look="disney"].is-playing .pc-center { opacity: 0; }
+.player[data-look="disney"].is-playing:not(.idle):hover .pc-center { opacity: 1; }

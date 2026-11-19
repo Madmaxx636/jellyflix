@@ -1,0 +1,67 @@
+/* ===== top bar: shared structure ===== */
+.nav { position: fixed; top: 0; left: 0; right: 0; z-index: 30; height: var(--nav-h); display: flex; align-items: center; gap: 28px; padding: 0 4%; background: linear-gradient(to bottom, rgba(0, 0, 0, .85), transparent); transition: background .25s; }
+/* the bar goes solid once content scrolls underneath it (must come after the per-look rules below to win) */
+.nav-links { display: flex; align-items: center; gap: 18px; font-size: 14px; }
+.nav-links a, .nav-more { color: #e5e5e5; text-decoration: none; background: none; border: 0; font: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 6px 2px; white-space: nowrap; }
+.nav-links a:hover, .nav-more:hover { color: #b3b3b3; }
+.nav-links a.active { color: #fff; font-weight: 700; }
+.nav-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+.nav-menu { position: relative; }
+.menu { position: absolute; top: calc(100% + 8px); left: 0; min-width: 200px; z-index: 40; background: rgba(8, 8, 8, .96); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 0; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0, 0, 0, .6); }
+.menu.right { left: auto; right: 0; }
+.menu a, .menu button { display: flex; align-items: center; gap: 10px; padding: 10px 16px; color: #ddd; background: none; border: 0; text-align: left; text-decoration: none; cursor: pointer; font-size: 14px; font-weight: 400; }
+.menu a:hover, .menu button:hover { background: rgba(255, 255, 255, .1); color: #fff; }
+.menu a.active, .menu button.on { color: var(--accent); font-weight: 700; }
+.menu-head { padding: 8px 16px 10px; font-weight: 700; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+.look-btn { display: inline-flex; align-items: center; gap: 6px; background: rgba(0, 0, 0, .45); color: #ddd; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.look-btn:hover { color: #fff; border-color: rgba(255, 255, 255, .4); }
+.avatar { width: 32px; height: 32px; border-radius: var(--avatar-radius); overflow: hidden; border: 0; padding: 0; cursor: pointer; display: block; }
+.avatar img, .avatar span { width: 100%; height: 100%; display: grid; place-items: center; object-fit: cover; font-weight: 700; color: #fff; }
+.nav-search { display: flex; align-items: center; gap: 6px; }
+.nav-search button, .nav-iconlink { background: none; border: 0; color: #fff; cursor: pointer; display: grid; place-items: center; padding: 4px; text-decoration: none; }
+.nav-search input { background: rgba(0, 0, 0, .7); border: 1px solid #888; color: #fff; padding: 7px 12px; border-radius: var(--radius); width: 240px; font-size: 14px; }
+.nav-search.open { border: 1px solid #888; background: rgba(0, 0, 0, .7); padding-left: 4px; }
+.nav-search.open input { border: 0; background: transparent; outline: none; }
+.nav-search.bar { background: rgba(255, 255, 255, .1); border-radius: 999px; padding: 0 14px; color: var(--muted); }
+.nav-search.bar input { background: transparent; border: 0; outline: none; padding: 9px 0; width: 200px; }
+.nav-burger { display: none; background: none; border: 0; color: #fff; cursor: pointer; padding: 4px; }
+.burger-panel { position: absolute; top: var(--nav-h); left: 0; right: 0; background: var(--nav-solid); padding: 10px 4% 16px; display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.burger-panel a { color: #ddd; text-decoration: none; padding: 10px 0; display: flex; gap: 10px; align-items: center; }
+.burger-panel a.active { color: var(--accent); font-weight: 700; }
+
+/* narrow windows: the links fold into the menu button, as the real sites do */
+@media (max-width: 1180px) {
+  .nav-links { display: none; }
+  .nav-burger { display: inline-flex; }
+  .nav-search.bar input { width: 120px; }
+}
+
+/* ===== Netflix: light weight links, an icon that opens the search box ===== */
+[data-theme="netflix"] .nav-links a.active { font-weight: 600; }
+
+/* ===== Hulu: a solid bar, bold links with a green underline, round avatar ===== */
+[data-theme="hulu"] .nav { background: var(--nav-solid); }
+[data-theme="hulu"] .logo { font-weight: 800; letter-spacing: -1px; font-size: 30px; }
+[data-theme="hulu"] .nav-links { gap: 22px; font-size: 15px; font-weight: 700; }
+[data-theme="hulu"] .nav-links a, [data-theme="hulu"] .nav-more { border-bottom: 3px solid transparent; padding: 20px 2px 17px; }
+[data-theme="hulu"] .nav-links a.active { border-bottom-color: var(--accent); }
+[data-theme="hulu"] .look-btn { background: transparent; }
+
+/* ===== HBO: spaced capitals, a bar that only appears when you scroll ===== */
+[data-theme="hbo"] .logo { font-weight: 300; letter-spacing: 6px; font-size: 22px; }
+[data-theme="hbo"] .nav-links { gap: 26px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
+[data-theme="hbo"] .nav-links a.active { border-bottom: 2px solid var(--accent); padding-bottom: 4px; font-weight: 600; }
+[data-theme="hbo"] .look-btn { border-radius: 2px; text-transform: uppercase; letter-spacing: 1px; font-size: 11px; }
+
+/* ===== Disney+: a navy bar, labelled icons, an underline that grows on hover ===== */
+[data-theme="disney"] .nav { background: var(--nav-solid); gap: 34px; }
+[data-theme="disney"] .logo { font-weight: 700; letter-spacing: 0; font-style: italic; font-size: 28px; color: #fff; }
+[data-theme="disney"] .nav-links { gap: 26px; font-size: 13px; letter-spacing: 1.4px; text-transform: uppercase; font-weight: 600; }
+[data-theme="disney"] .nav-links a, [data-theme="disney"] .nav-more { position: relative; color: #f9f9f9; padding: 6px 0; }
+[data-theme="disney"] .nav-links a::after, [data-theme="disney"] .nav-more::after { content: ""; position: absolute; left: 0; right: 0; bottom: -4px; height: 2px; background: #f9f9f9; transform: scaleX(0); transform-origin: left; transition: transform .25s; }
+[data-theme="disney"] .nav-links a:hover::after, [data-theme="disney"] .nav-links a.active::after, [data-theme="disney"] .nav-more:hover::after { transform: scaleX(1); }
+[data-theme="disney"] .nav-links a:hover, [data-theme="disney"] .nav-links a.active { color: #fff; }
+[data-theme="disney"] .avatar { border: 2px solid rgba(255, 255, 255, .6); }
+[data-theme="disney"] .look-btn { background: transparent; }
+
+.nav.scrolled { background: var(--nav-solid); }
