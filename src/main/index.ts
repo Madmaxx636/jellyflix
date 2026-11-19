@@ -42,8 +42,10 @@ app.whenReady().then(() => {
       if (k.toLowerCase().startsWith('access-control-')) delete headers[k]
     }
     headers['Access-Control-Allow-Origin'] = ['*']
-    headers['Access-Control-Allow-Headers'] = ['*']
+    // "*" never covers Authorization, so the headers the client sends are listed by name.
+    headers['Access-Control-Allow-Headers'] = ['Authorization, Content-Type, X-Emby-Authorization, X-Emby-Token']
     headers['Access-Control-Allow-Methods'] = ['GET, POST, DELETE, OPTIONS']
+    headers['Access-Control-Max-Age'] = ['600']
     cb({ responseHeaders: headers })
   })
   createWindow()

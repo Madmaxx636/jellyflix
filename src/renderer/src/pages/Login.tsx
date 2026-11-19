@@ -17,7 +17,7 @@ export default function Login({ onLogin }: { onLogin: (s: Session) => void }) {
       saveSession(s)
       onLogin(s)
     } catch (e) {
-      setErr(`Couldn't sign in (${(e as Error).message}). Check the server address and credentials.`)
+      setErr((e as Error).message) // already worded for the user: what failed, what the server said, what to check
     } finally { setBusy(false) }
   }
 
