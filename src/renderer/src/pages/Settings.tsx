@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react'
-import { APP_VERSION, type Api, type PublicInfo, type Session } from '../api/jellyfin'
+import { APP_VERSION, type Api, type Session } from '../api/jellyfin'
+import { useLoad } from '../hooks/useLoad'
+import { usePageTitle } from '../hooks/usePageTitle'
+import { LANGUAGES, type Settings } from '../settingsModel'
+import { useSettings } from '../settings'
 import { THEMES, useTheme, type ThemeId } from '../theme'
-import { LANGUAGES, useSettings, type Settings } from '../settings'
+import { toast } from '../toast'
 import { Select, SettingRow, Toggle } from '../components/Fields'
 
 const SECTIONS = [
@@ -13,22 +17,25 @@ const SECTIONS = [
 ]
 
 const LANG_OPTIONS = LANGUAGES.map(l => ({ value: l.code, label: l.label }))
+const CONFIRM_FOR_MS = 5000
 
 /** Settings / Account / App Settings. Every control here changes something the app really does. */
 export default function SettingsPage({ api, session, onLogout }: { api: Api; session: Session; onLogout: () => void }) {
   const { settings: st, set, setRow, reset } = useSettings()
   const { theme, setTheme } = useTheme()
   const w = theme.words
-  const [info, setInfo] = useState<PublicInfo | null>(null)
+  usePageTitle(w.settings)
+  const { data: info } = useLoad(api, 'info', a => a.publicInfo())
   const [confirmReset, setConfirmReset] = useState(false)
 
+  // The second click has to come soon after the first, or the question lapses.
   useEffect(() => {
-    let live = true
-    api.publicInfo().then(i => { if (live) setInfo(i) }).catch(() => {})
-    return () => { live = false }
-  }, [api])
+    if (!confirmReset) return
+    const timer = setTimeout(() => setConfirmReset(false), CONFIRM_FOR_MS)
+    return () => clearTimeout(timer)
+  }, [confirmReset])
 
-  const go = (id: string) => document.getElementById(`set-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const go = (id: string) => document.getElementById(`set-${id}`)?.scrollIntoView({ behavior: st.reduceMotion ? 'auto' : 'smooth', block: 'start' })
 
   return (
     <div className={`page settings settings-${theme.settings}`}>
@@ -84,7 +91,7 @@ export default function SettingsPage({ api, session, onLogout }: { api: Api; ses
             <SettingRow id="rotateHero" label="Rotate featured titles" hint="Only in looks that have a carousel.">
               <Toggle label="Rotate featured titles" checked={st.rotateHero} onChange={v => set({ rotateHero: v })} />
             </SettingRow>
-            <SettingRow id="reduceMotion" label="Reduce motion" hint="No hover zoom or automatic rotation.">
+            <SettingRow id="reduceMotion" label="Reduce motion" hint="No hover zoom or automatic rotation. Starts out following your system's setting.">
               <Toggle label="Reduce motion" checked={st.reduceMotion} onChange={v => set({ reduceMotion: v })} />
             </SettingRow>
           </section>
@@ -127,7 +134,7 @@ export default function SettingsPage({ api, session, onLogout }: { api: Api; ses
             </SettingRow>
             <SettingRow id="reset" label="Reset these settings" hint="Puts every option on this page back to how it started.">
               {confirmReset
-                ? <button className="btn danger" data-act="reset-confirm" onClick={() => { reset(); setConfirmReset(false) }}>Click again to confirm</button>
+                ? <button className="btn danger" data-act="reset-confirm" onClick={() => { reset(); setConfirmReset(false); toast('Settings are back to how they started.') }}>Click again to confirm</button>
                 : <button className="btn" data-act="reset" onClick={() => setConfirmReset(true)}>Reset</button>}
             </SettingRow>
           </section>

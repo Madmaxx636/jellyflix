@@ -1,15 +1,20 @@
-import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigationType, useSearchParams } from 'react-router-dom'
 import type { Api, Item, Query } from '../api/jellyfin'
+import { recall, remember } from '../hooks/memory'
+import { useParamUpdater } from '../hooks/useParamUpdater'
+import { usePageTitle } from '../hooks/usePageTitle'
 import { useTheme } from '../theme'
+import { flagsOf, useFlagsVersion } from '../userdata'
 import { Card } from './Card'
 import { Select } from './Fields'
-import { flagsOf, useFlagsVersion } from '../userdata'
+import { ErrorBox, GridSkeleton } from './Status'
 
-const PAGE = 48
+const PAGE_SIZE = 48
+const SHUFFLE_SIZE = 60 // a shuffled list can't be paged (the order would change), so it is one page
 type Filter = NonNullable<Query['filters']>[number]
 
-export const SORTS = [
+const SORTS = [
   { id: 'name', label: 'Name (A–Z)', by: 'SortName', order: 'Ascending' },
   { id: 'name-desc', label: 'Name (Z–A)', by: 'SortName', order: 'Descending' },
   { id: 'added', label: 'Recently added', by: 'DateCreated', order: 'Descending' },
@@ -22,7 +27,7 @@ export interface BrowseProps {
   api: Api
   title: string
   subtitle?: ReactNode
-  base: { parentId?: string; types: string[]; personId?: string; recursive?: boolean }
+  base: { parentId?: string; types: string[]; personId?: string }
   /** Filters the viewer can't change, e.g. My List. */
   lockedFilters?: Filter[]
   /** A genre fixed by the page (the genre page). */
@@ -38,130 +43,146 @@ export interface BrowseProps {
   dropUnfavorited?: boolean
 }
 
-/** A sortable, filterable grid that loads more as you scroll. The choices live in the address so Back works. */
+/** What is on screen: one query's titles so far. */
+interface Shown { key: string; items: Item[]; total: number | null; error: Error | null }
+
+/**
+ * A sortable, filterable grid that loads more as you scroll. The choices live in the address, so Back and reload behave,
+ * and going Back to a grid you scrolled down brings back everything that was loaded.
+ */
 export default function Browse(p: BrowseProps) {
-  const { api } = p
+  const { api, lockedFilters, lockedGenre, typeSwitch, genreScope } = p
   const { theme } = useTheme()
-  const [sp, setSp] = useSearchParams()
-  const sort = SORTS.find(s => s.id === (sp.get('sort') ?? p.defaultSort ?? 'name')) ?? SORTS[0]
-  const genre = p.lockedGenre ?? sp.get('genre') ?? ''
-  const filter = sp.get('filter') ?? 'all'
-  const type = sp.get('type') ?? 'all'
+  const [params] = useSearchParams()
+  const setParam = useParamUpdater()
+  const { key: entry } = useLocation()
+  const navigation = useNavigationType()
+  usePageTitle(p.title)
 
-  const [genres, setGenres] = useState<string[]>([])
-  const [items, setItems] = useState<Item[]>([])
-  const [total, setTotal] = useState<number | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [err, setErr] = useState('')
-  const gen = useRef(0)
-  const sentinel = useRef<HTMLDivElement>(null)
-  useFlagsVersion()
+  const sort = SORTS.find(s => s.id === (params.get('sort') ?? p.defaultSort ?? 'name')) ?? SORTS[0]
+  const genre = lockedGenre ?? params.get('genre') ?? ''
+  const filter = params.get('filter') ?? 'all'
+  const type = params.get('type') ?? 'all'
+  const [attempt, setAttempt] = useState(0) // "Try again" asks for a fresh first page
 
-  const types = useMemo(
-    () => (p.typeSwitch && type !== 'all' ? [type === 'movies' ? 'Movie' : 'Series'] : p.base.types),
-    [p.typeSwitch, type, p.base.types]
-  )
+  const types = useMemo(() => (typeSwitch && type !== 'all' ? [type === 'movies' ? 'Movie' : 'Series'] : p.base.types), [typeSwitch, type, p.base.types])
   const filters = useMemo(() => {
-    const f: Filter[] = [...(p.lockedFilters ?? [])]
+    const f: Filter[] = [...(lockedFilters ?? [])]
     if (filter === 'unplayed') f.push('IsUnplayed')
     if (filter === 'played') f.push('IsPlayed')
     if (filter === 'fav') f.push('IsFavorite')
     return f
-  }, [p.lockedFilters, filter])
-  const key = JSON.stringify([p.base, types, filters, genre, sort.id])
+  }, [lockedFilters, filter])
+  const request = useMemo<Query>(() => ({
+    parentId: p.base.parentId, personId: p.base.personId, types, genres: genre ? [genre] : undefined,
+    filters, sortBy: sort.by, sortOrder: sort.order
+  }), [p.base.parentId, p.base.personId, types, genre, filters, sort])
+  const queryKey = JSON.stringify([request, attempt])
 
-  const fetchPage = useCallback(async (start: number, g: number) => {
-    setLoading(true)
+  const slot = `browse|${entry}`
+  const [saved] = useState(() => (navigation === 'POP' ? recall<Shown>(slot) : undefined))
+  const [shown, setShown] = useState<Shown>(() => saved?.key === queryKey ? saved : { key: '', items: [], total: null, error: null })
+  const current = shown.key === queryKey
+  const items = current ? shown.items : []
+  const total = current ? shown.total : null
+  const error = current ? shown.error : null
+  const [pending, setPending] = useState(false)
+  const query = useRef<AbortController | null>(null) // stops whatever is still loading for the previous query
+  const inFlight = useRef(false)
+  const skipFirstLoad = useRef(saved?.key === queryKey)
+  const sentinel = useRef<HTMLDivElement>(null)
+  const [genres, setGenres] = useState<string[]>([])
+  useFlagsVersion()
+
+  const load = useCallback(async (start: number, signal: AbortSignal) => {
+    inFlight.current = true
+    setPending(true)
     try {
-      const r = await api.items({
-        parentId: p.base.parentId, personId: p.base.personId, recursive: p.base.recursive, types,
-        genres: genre ? [genre] : undefined, filters, sortBy: sort.by, sortOrder: sort.order,
-        start, limit: sort.by === 'Random' ? 60 : PAGE
-      })
-      if (g !== gen.current) return // a newer query replaced this one
-      setItems(cur => (start === 0 ? r.items : [...cur, ...r.items]))
-      setTotal(r.total)
+      const r = await api.with(signal).items({ ...request, start, limit: sort.by === 'Random' ? SHUFFLE_SIZE : PAGE_SIZE })
+      if (signal.aborted) return // a newer query replaced this one
+      setShown(cur => ({ key: queryKey, items: start === 0 || cur.key !== queryKey ? r.items : [...cur.items, ...r.items], total: r.total, error: null }))
     } catch (e) {
-      if (g === gen.current) setErr((e as Error).message)
+      if (signal.aborted) return
+      setShown(cur => ({ key: queryKey, items: cur.key === queryKey ? cur.items : [], total: cur.key === queryKey ? cur.total : null, error: e as Error }))
     } finally {
-      if (g === gen.current) setLoading(false)
+      if (!signal.aborted) { inFlight.current = false; setPending(false) }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, key])
+  }, [api, request, queryKey, sort.by])
 
   useEffect(() => {
-    gen.current++
-    setItems([]); setTotal(null); setErr('')
-    fetchPage(0, gen.current)
-  }, [fetchPage])
+    const ctl = new AbortController()
+    query.current = ctl
+    if (skipFirstLoad.current) skipFirstLoad.current = false // coming Back: what was loaded is already here
+    else void load(0, ctl.signal)
+    return () => ctl.abort()
+  }, [load])
 
+  useEffect(() => {
+    if (current) remember(slot, shown)
+  }, [slot, shown, current])
+
+  // The sentinel sits under the last row: when it comes near the screen, load the next page. A failed page stops the
+  // paging (the error box offers "Try again") instead of asking again straight away.
   useEffect(() => {
     const el = sentinel.current
     if (!el) return
-    const more = total != null && items.length < total && sort.by !== 'Random'
-    const io = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && !loading && more) fetchPage(items.length, gen.current)
+    const more = total != null && items.length < total && !error && sort.by !== 'Random'
+    const watcher = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && more && !inFlight.current && query.current) void load(items.length, query.current.signal)
     }, { rootMargin: '800px' })
-    io.observe(el)
-    return () => io.disconnect()
-  }, [items.length, total, loading, fetchPage, sort.by])
+    watcher.observe(el)
+    return () => watcher.disconnect()
+  }, [items.length, total, error, load, sort.by])
 
   useEffect(() => {
-    if (!p.genreScope) return
-    let live = true
-    api.genres(p.genreScope).then(g => { if (live) setGenres(g) }).catch(() => {})
-    return () => { live = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, JSON.stringify(p.genreScope)])
+    if (!genreScope) return
+    const ctl = new AbortController()
+    api.with(ctl.signal).genres(genreScope).then(g => { if (!ctl.signal.aborted) setGenres(g) }, () => { /* the menu just stays short */ })
+    return () => ctl.abort()
+  }, [api, genreScope])
 
-  const update = (patch: Record<string, string>) =>
-    setSp(prev => {
-      const n = new URLSearchParams(prev)
-      for (const [k, v] of Object.entries(patch)) { if (v && v !== 'all') n.set(k, v); else n.delete(k) }
-      return n
-    }, { replace: true })
-
-  const shown = p.dropUnfavorited ? items.filter(i => flagsOf(i).fav) : items
-  const count = p.dropUnfavorited && total != null && items.length >= total ? shown.length : total
+  const visible = p.dropUnfavorited ? items.filter(i => flagsOf(i).fav) : items
+  const count = p.dropUnfavorited && total != null && items.length >= total ? visible.length : total
   const w = theme.words
+  const firstPageLoading = !current && !error
 
   return (
     <div className="browse page" data-browse>
       <header className="browse-head">
         <h1 className="page-title">{p.title}</h1>
         <div className="browse-tools">
-          {p.genreScope && !p.lockedGenre && (
-            <label className="tool"><span>{w.genres}</span>
-              <Select label={w.genres} value={genre} onChange={v => update({ genre: v })}
+          {genreScope && !lockedGenre && (
+            <label className="tool" htmlFor="browse-genre"><span>{w.genres}</span>
+              <Select id="browse-genre" label={w.genres} value={genre} onChange={v => setParam({ genre: v })}
                 options={[{ value: '', label: 'All genres' }, ...genres.map(g => ({ value: g, label: g }))]} />
             </label>
           )}
-          {p.typeSwitch && (
+          {typeSwitch && (
             <div className="seg" role="group" aria-label="Type">
               {[['all', 'All'], ['movies', 'Movies'], ['shows', 'Shows']].map(([id, label]) => (
-                <button key={id} data-type={id} className={type === id ? 'on' : ''} onClick={() => update({ type: id })}>{label}</button>
+                <button key={id} data-type={id} aria-pressed={type === id} className={type === id ? 'on' : ''} onClick={() => setParam({ type: id })}>{label}</button>
               ))}
             </div>
           )}
           {!p.hideFilter && (
-            <label className="tool"><span>Show</span>
-              <Select label="Show" value={filter} onChange={v => update({ filter: v })}
+            <label className="tool" htmlFor="browse-show"><span>Show</span>
+              <Select id="browse-show" label="Show" value={filter} onChange={v => setParam({ filter: v })}
                 options={[{ value: 'all', label: 'Everything' }, { value: 'unplayed', label: 'Unwatched' }, { value: 'played', label: 'Watched' }, { value: 'fav', label: `In ${w.myList}` }]} />
             </label>
           )}
-          <label className="tool"><span>Sort</span>
-            <Select label="Sort" value={sort.id} onChange={v => update({ sort: v })} options={SORTS.map(s => ({ value: s.id, label: s.label }))} />
+          <label className="tool" htmlFor="browse-sort"><span>Sort</span>
+            <Select id="browse-sort" label="Sort" value={sort.id} onChange={v => setParam({ sort: v })} options={SORTS.map(s => ({ value: s.id, label: s.label }))} />
           </label>
         </div>
       </header>
       {p.subtitle}
-      {err && <p className="error">Couldn't load this list: {err}</p>}
-      <div className="grid">{shown.map(it => <Card key={it.Id} item={it} api={api} />)}</div>
-      {!loading && !err && shown.length === 0 && total === 0 && <p className="empty">{p.empty ?? 'Nothing here yet.'}</p>}
-      {!loading && !err && shown.length === 0 && total != null && total > 0 && p.dropUnfavorited && <p className="empty">{p.empty ?? 'Nothing here yet.'}</p>}
+      {error && <ErrorBox error={error} what="this list" onRetry={() => setAttempt(a => a + 1)} />}
+      {firstPageLoading && <GridSkeleton />}
+      <div className="grid">{visible.map(it => <Card key={it.Id} item={it} api={api} />)}</div>
+      {current && !pending && !error && visible.length === 0 && (p.dropUnfavorited ? total != null : total === 0) && <p className="empty">{p.empty ?? 'Nothing here yet.'}</p>}
       <div ref={sentinel} className="sentinel" />
-      {loading && <p className="count">Loading…</p>}
-      {!loading && count != null && count > 0 && <p className="count" data-count={count}>{count} {count === 1 ? 'title' : 'titles'}</p>}
+      {pending && current && <p className="count" role="status">Loading…</p>}
+      {!pending && count != null && count > 0 && <p className="count" data-count={count}>{count} {count === 1 ? 'title' : 'titles'}</p>}
     </div>
   )
 }

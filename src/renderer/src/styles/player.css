@@ -1,66 +1,172 @@
-.player { position: fixed; inset: 0; background: #000; overflow: hidden; color: #fff; user-select: none; }
+/* ===== frame and picture ===== */
+.player-frame { position: fixed; inset: 0; background: #000; }
+.player {
+  position: fixed; inset: 0; background: #000; overflow: hidden; color: #fff; user-select: none;
+  /* what a look changes: icon size, side margin, progress line thickness and colour, and how high the pop-ups sit */
+  --pc-icon: 28px; --pc-pad: 26px; --pc-track: 4px; --pc-fill: var(--accent); --pc-menu-bottom: 104px;
+}
 .player video { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
 .player video::cue { background: rgba(0, 0, 0, .72); color: #fff; font-size: 1.5rem; line-height: 1.3; }
-.pc-top, .pc-bar, .pc-center { transition: opacity .3s; }
-.pc-top { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 12px; padding: 14px 22px; background: linear-gradient(rgba(0, 0, 0, .8), transparent); }
-.pc-title { font-size: 1.05rem; font-weight: 600; }
+.pc-top, .pc-bar { transition: opacity .3s; }
+
+/* ===== top: back button, and the title in the looks that put it there ===== */
+.pc-top { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 14px; padding: 18px var(--pc-pad); background: linear-gradient(rgba(0, 0, 0, .8), transparent); }
+.pc-heading { display: grid; gap: 2px; min-width: 0; }
+.pc-heading .pc-title { font-size: 1.2rem; font-weight: 700; }
+.pc-heading .pc-sub { font-size: .92rem; color: rgba(255, 255, 255, .75); }
 .pc-btn { background: none; border: 0; color: #fff; cursor: pointer; padding: 6px; display: inline-grid; place-items: center; border-radius: 50%; opacity: .92; }
 .pc-btn:hover { opacity: 1; background: rgba(255, 255, 255, .14); }
-.pc-bar { position: absolute; left: 0; right: 0; bottom: 0; padding: 44px 22px 14px; background: linear-gradient(transparent, rgba(0, 0, 0, .86)); }
-.pc-scrub { position: relative; height: 18px; cursor: pointer; touch-action: none; }
-.pc-scrub::before { content: ""; position: absolute; left: 0; right: 0; top: 7px; height: 4px; background: rgba(255, 255, 255, .28); border-radius: 2px; }
-.pc-scrub .buf, .pc-scrub .pos, .pc-scrub .mark { position: absolute; top: 7px; height: 4px; border-radius: 2px; }
-.pc-scrub .buf { left: 0; background: rgba(255, 255, 255, .42); }
-.pc-scrub .pos { left: 0; background: var(--accent); }
-.pc-scrub .mark { background: rgba(255, 214, 10, .85); border-radius: 0; }
-.pc-scrub .knob { position: absolute; top: 3px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--accent); transform: scale(0); transition: transform .15s; }
-.pc-scrub:hover .knob { transform: scale(1); }
-.pc-scrub:hover::before, .pc-scrub:hover .buf, .pc-scrub:hover .pos, .pc-scrub:hover .mark { top: 6px; height: 6px; }
-.pc-scrub .tip { position: absolute; bottom: 22px; transform: translateX(-50%); background: rgba(0, 0, 0, .88); padding: 3px 8px; border-radius: 4px; font-size: 12px; pointer-events: none; }
-.pc-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; }
-.pc-left, .pc-right { display: flex; align-items: center; gap: 4px; flex: none; }
-.pc-mid { flex: 1; text-align: center; opacity: .85; font-size: .95rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 0 12px; }
-.pc-vol { width: 80px; accent-color: var(--accent); }
-.pc-time { font-size: 13px; margin-left: 10px; }
-.pc-time span { opacity: .65; }
-.pc-center { display: none; }
-.pc-loading, .pc-err { position: absolute; top: 50%; left: 0; right: 0; text-align: center; transform: translateY(-50%); font-size: 1.05rem; pointer-events: none; }
-.pc-err { color: #ff6b6b; padding: 0 40px; }
+.pc-btn .icon { width: var(--pc-icon); height: var(--pc-icon); }
 
-.pc-skip { position: absolute; right: 4%; bottom: 128px; background: rgba(20, 20, 20, .82); color: #fff; border: 2px solid rgba(255, 255, 255, .7); padding: 12px 26px; font-size: 1rem; font-weight: 700; cursor: pointer; border-radius: var(--btn-radius); }
+/* ===== bottom: progress line, then the controls ===== */
+.pc-bar { position: absolute; left: 0; right: 0; bottom: 0; padding: 64px var(--pc-pad) 16px; background: linear-gradient(transparent, rgba(0, 0, 0, .88)); }
+.pc-progress { display: flex; align-items: center; gap: 14px; }
+.pc-progress .pc-scrub { flex: 1; }
+.pc-clock { font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 3.4em; }
+.pc-elapsed { text-align: right; }
+.pc-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; margin-top: 4px; }
+.pc-row[data-middle="cluster"] { grid-template-columns: 1fr auto 1fr; }
+.pc-left, .pc-right, .pc-cluster { display: flex; align-items: center; gap: 4px; }
+.pc-right { justify-self: end; }
+.pc-cluster { justify-self: center; gap: 10px; }
+.pc-mid { min-width: 0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 12px; }
+.pc-mid .pc-title span { margin-left: 10px; opacity: .85; }
+
+.pc-scrub { position: relative; height: 20px; cursor: pointer; touch-action: none; }
+.pc-scrub::before { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - var(--pc-track) / 2); height: var(--pc-track); background: rgba(255, 255, 255, .28); border-radius: 2px; }
+.pc-scrub .buf, .pc-scrub .pos, .pc-scrub .mark { position: absolute; top: calc(50% - var(--pc-track) / 2); height: var(--pc-track); border-radius: 2px; }
+.pc-scrub .buf { left: 0; background: rgba(255, 255, 255, .42); }
+.pc-scrub .pos { left: 0; background: var(--pc-fill); }
+.pc-scrub .mark { background: rgba(255, 255, 255, .55); border-radius: 0; }
+.pc-scrub .knob { position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--pc-fill); transform: scale(0); transition: transform .15s; }
+.pc-scrub:hover .knob, .pc-scrub:focus-visible .knob { transform: scale(1); }
+.pc-scrub:hover::before, .pc-scrub:hover .buf, .pc-scrub:hover .pos, .pc-scrub:hover .mark { top: calc(50% - var(--pc-track)); height: calc(var(--pc-track) * 2); }
+.pc-scrub .tip { position: absolute; bottom: 26px; transform: translateX(-50%); background: rgba(0, 0, 0, .88); padding: 3px 8px; border-radius: 4px; font-size: 12px; pointer-events: none; }
+
+/* the volume slider opens when the speaker is hovered or focused */
+.pc-volume { display: flex; align-items: center; }
+.pc-vol { width: 0; margin: 0; opacity: 0; accent-color: var(--accent); transition: width .2s, opacity .2s, margin .2s; }
+.pc-volume:hover .pc-vol, .pc-volume:focus-within .pc-vol { width: 90px; margin: 0 8px 0 2px; opacity: 1; }
+
+/* ===== states ===== */
+.pc-loading, .pc-err { position: absolute; top: 50%; left: 0; right: 0; text-align: center; transform: translateY(-50%); font-size: 1.05rem; pointer-events: none; }
+.pc-err { color: #ff6b6b; padding: 0 40px; display: grid; justify-items: center; gap: 14px; }
+.pc-err p { margin: 0; max-width: 640px; }
+.pc-err .btn { pointer-events: auto; color: #fff; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.pc-spinner { position: absolute; top: 50%; left: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border: 4px solid rgba(255, 255, 255, .25); border-top-color: #fff; border-radius: 50%; animation: spin .9s linear infinite; pointer-events: none; }
+.pc-end { position: absolute; inset: 0; display: flex; gap: 14px; align-items: center; justify-content: center; background: rgba(0, 0, 0, .6); }
+
+/* Netflix shows what you are watching once the video has been paused for a moment */
+.pc-paused { position: absolute; inset: 0; display: grid; align-content: center; justify-items: start; gap: 10px; padding: 0 12% 6%; background: rgba(0, 0, 0, .62); pointer-events: none; }
+.pc-paused small { color: #b3b3b3; font-size: 1.1rem; }
+.pc-paused h2 { margin: 0; font-size: clamp(2rem, 4.4vw, 3.6rem); line-height: 1.05; }
+.pc-paused .ep { margin: 0; font-size: 1.5rem; }
+.pc-paused .ov { margin: 6px 0 0; max-width: 640px; font-size: 1.15rem; line-height: 1.45; color: #d2d2d2; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* ===== skip and next episode ===== */
+.pc-skip { position: absolute; right: var(--pc-pad); bottom: calc(var(--pc-menu-bottom) + 12px); background: rgba(20, 20, 20, .82); color: #fff; border: 2px solid rgba(255, 255, 255, .7); padding: 12px 26px; font-size: 1.05rem; font-weight: 700; cursor: pointer; border-radius: var(--btn-radius); }
 .pc-skip:hover { background: #fff; color: #000; }
-.pc-next { position: absolute; right: 4%; bottom: 128px; width: 380px; background: rgba(15, 15, 15, .94); border: 1px solid rgba(255, 255, 255, .2); border-radius: var(--radius); }
+.pc-next { position: absolute; right: var(--pc-pad); bottom: calc(var(--pc-menu-bottom) + 12px); width: 380px; background: rgba(15, 15, 15, .94); border: 1px solid rgba(255, 255, 255, .2); border-radius: var(--radius); }
 .pc-next-body { display: flex; gap: 12px; align-items: center; width: 100%; background: none; border: 0; color: #fff; text-align: left; padding: 10px 34px 10px 10px; cursor: pointer; }
 .pc-next-body img, .pc-next-body .ph { width: 120px; aspect-ratio: 16 / 9; object-fit: cover; background: var(--card-bg); border-radius: 4px; display: grid; place-items: center; flex: none; }
 .pc-next-body small { display: block; color: var(--muted); }
 .pc-next-body b { display: block; margin-top: 2px; font-size: 14px; }
 .pc-next-x { position: absolute; top: 4px; right: 4px; background: none; border: 0; color: #fff; cursor: pointer; padding: 4px; opacity: .7; }
 .pc-next-x:hover { opacity: 1; }
-.pc-end { position: absolute; inset: 0; display: flex; gap: 14px; align-items: center; justify-content: center; background: rgba(0, 0, 0, .6); }
 
-.pc-menu { position: absolute; right: 22px; bottom: 100px; z-index: 5; background: rgba(10, 10, 10, .96); border: 1px solid rgba(255, 255, 255, .18); border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; min-width: 180px; max-height: 60vh; overflow: auto; }
+/* ===== pop-ups: audio and subtitles, speed, settings, episodes ===== */
+.pc-menu { position: absolute; left: var(--pc-pad); bottom: var(--pc-menu-bottom); z-index: 5; background: rgba(10, 10, 10, .96); border: 1px solid rgba(255, 255, 255, .18); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; min-width: 180px; max-height: 60vh; overflow: auto; }
 .pc-menu h4 { margin: 0 0 8px 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
 .pc-menu button { background: none; border: 0; color: #ddd; text-align: left; padding: 8px 12px; cursor: pointer; border-radius: 4px; font-size: 14px; }
 .pc-menu button:hover { background: rgba(255, 255, 255, .1); color: #fff; }
 .pc-menu button.on { color: var(--accent); font-weight: 700; }
 .pc-menu.tracks { flex-direction: row; gap: 28px; }
 .pc-menu .col { display: flex; flex-direction: column; min-width: 190px; }
-.pc-menu.eps { min-width: 320px; }
 
-.player.idle { cursor: none; }
-.player.idle .pc-top, .player.idle .pc-bar, .player.idle .pc-center { opacity: 0; pointer-events: none; }
+.pc-menu.eps { width: min(580px, calc(100vw - 32px)); padding: 0; }
+.pc-eps-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid rgba(255, 255, 255, .12); background: inherit; }
+.pc-eps-head h4 { margin: 0; font-size: 1.05rem; text-transform: none; letter-spacing: 0; color: #fff; }
+.pc-eps-list { display: flex; flex-direction: column; padding: 6px 0; }
+.pc-eps-list button { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 14px; padding: 12px 16px; border-radius: 0; }
+.pc-eps-list button:has(.pc-ep-pic) { grid-template-columns: 34px auto 1fr auto; }
+.pc-eps-list button b { text-align: center; font-size: 1.2rem; font-weight: 400; color: var(--muted); }
+.pc-eps-list button.on { background: rgba(255, 255, 255, .1); color: #fff; }
+.pc-ep-pic { width: 130px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 3px; background: var(--card-bg); }
+.pc-ep-text { display: grid; gap: 4px; min-width: 0; }
+.pc-ep-text .t { font-weight: 600; color: #fff; }
+.pc-ep-text small { color: var(--muted); font-size: 13px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.pc-ep-time { color: var(--muted); font-size: 13px; white-space: nowrap; }
 
-/* ===== per look ===== */
-.player[data-look="hulu"] .pc-scrub { height: 22px; }
-.player[data-look="hulu"] .pc-bar { background: linear-gradient(transparent, rgba(11, 12, 15, .95)); }
-.player[data-look="hbo"] .pc-title, .player[data-look="hbo"] .pc-mid { text-transform: uppercase; letter-spacing: 3px; font-weight: 300; font-size: .85rem; }
-.player[data-look="hbo"] .pc-scrub .pos, .player[data-look="hbo"] .pc-scrub .knob { background: #fff; }
-.player[data-look="hbo"] .pc-bar { background: linear-gradient(transparent, rgba(0, 0, 0, .95)); }
+/* the controls hide when the mouse is still, but never while a keyboard user is on one of them */
+.player.idle:not(:has(:focus-visible)) { cursor: none; }
+.player.idle:not(:has(:focus-visible)) .pc-top, .player.idle:not(:has(:focus-visible)) .pc-bar { opacity: 0; pointer-events: none; }
+
+/* ===== Netflix: a red line, big plain icons, the title in the middle of the bar, grey pop-ups with ticks ===== */
+.player[data-look="netflix"] { --pc-icon: 36px; --pc-pad: 4%; --pc-fill: #e50914; --pc-menu-bottom: 122px; }
+.player[data-look="netflix"] .pc-top { padding: 22px var(--pc-pad); background: linear-gradient(rgba(0, 0, 0, .55), transparent); }
+.player[data-look="netflix"] .pc-top .pc-btn .icon { width: 40px; height: 40px; }
+.player[data-look="netflix"] .pc-btn { border-radius: 0; opacity: 1; transition: transform .15s; }
+.player[data-look="netflix"] .pc-btn:hover { background: none; transform: scale(1.15); }
+.player[data-look="netflix"] .pc-clock { font-size: 18px; }
+.player[data-look="netflix"] .pc-mid { font-size: 1.4rem; }
+.player[data-look="netflix"] .pc-mid .pc-title span { font-weight: 400; color: #e5e5e5; }
+.player[data-look="netflix"] .pc-vol { accent-color: #fff; }
+.player[data-look="netflix"] .pc-skip { background: rgba(109, 109, 110, .75); border: 1px solid rgba(255, 255, 255, .8); }
+.player[data-look="netflix"] .pc-skip:hover { background: #fff; }
+.player[data-look="netflix"] .pc-menu { background: rgba(38, 38, 38, .98); border: 0; border-radius: 3px; padding: 22px 28px; box-shadow: 0 10px 30px rgba(0, 0, 0, .7); }
+.player[data-look="netflix"] .pc-menu.eps { padding: 0; }
+.player[data-look="netflix"] .pc-menu h4 { margin: 0 0 12px 26px; font-size: 20px; font-weight: 700; text-transform: none; letter-spacing: 0; color: #fff; }
+.player[data-look="netflix"] .pc-eps-head h4 { margin: 0; }
+.player[data-look="netflix"] .pc-menu button { position: relative; padding: 8px 14px 8px 26px; border-radius: 0; font-size: 17px; color: #b3b3b3; }
+.player[data-look="netflix"] .pc-menu button:hover { background: none; color: #fff; }
+.player[data-look="netflix"] .pc-menu button.on { color: #fff; font-weight: 700; }
+.player[data-look="netflix"] .pc-menu button.on::before { content: "✓"; position: absolute; left: 4px; }
+.player[data-look="netflix"] .pc-eps-list button { padding: 12px 16px; font-size: 16px; }
+.player[data-look="netflix"] .pc-eps-list button.on::before { content: none; }
+.player[data-look="netflix"] .pc-eps-list button:hover { background: rgba(255, 255, 255, .07); }
+
+/* ===== Hulu: green line with a white knob, the title and episode up top, soft rounded pop-ups ===== */
+.player[data-look="hulu"] { --pc-icon: 30px; --pc-pad: 28px; --pc-track: 5px; --pc-fill: #1ce783; --pc-menu-bottom: 108px; }
+.player[data-look="hulu"] .pc-top { background: linear-gradient(rgba(11, 12, 15, .92), transparent); }
+.player[data-look="hulu"] .pc-bar { background: linear-gradient(transparent, rgba(11, 12, 15, .96)); }
+.player[data-look="hulu"] .pc-heading .pc-title { font-size: 1.5rem; font-weight: 800; letter-spacing: -.3px; }
+.player[data-look="hulu"] .pc-clock { font-weight: 600; }
+.player[data-look="hulu"] .pc-scrub .knob { background: #fff; }
+.player[data-look="hulu"] .pc-skip { background: #fff; color: #0b0c0f; border: 0; border-radius: 6px; }
+.player[data-look="hulu"] .pc-menu { background: #14171d; border: 1px solid rgba(255, 255, 255, .1); border-radius: 14px; box-shadow: 0 12px 36px rgba(0, 0, 0, .6); }
+.player[data-look="hulu"] .pc-menu h4 { font-size: 15px; text-transform: none; letter-spacing: 0; color: #fff; }
+.player[data-look="hulu"] .pc-menu button { border-radius: 8px; }
+.player[data-look="hulu"] .pc-menu button.on { color: #1ce783; }
+.player[data-look="hulu"] .pc-eps-list button { border-radius: 0; }
+.player[data-look="hulu"] .pc-next { border-radius: 12px; background: #14171d; }
+
+/* ===== HBO: a hairline, spaced capitals, square corners, a ring round the knob ===== */
+.player[data-look="hbo"] { --pc-icon: 26px; --pc-pad: 30px; --pc-track: 2px; --pc-fill: #fff; --pc-menu-bottom: 102px; }
 .player[data-look="hbo"] .pc-btn { border-radius: 2px; }
-.player[data-look="disney"] .pc-bar { background: linear-gradient(transparent, rgba(4, 7, 20, .95)); }
-.player[data-look="disney"] .pc-center { display: flex; position: absolute; inset: 0; align-items: center; justify-content: center; gap: 56px; pointer-events: none; }
-.player[data-look="disney"] .pc-center .pc-btn { pointer-events: auto; background: rgba(4, 7, 20, .55); padding: 16px; }
-.player[data-look="disney"] .pc-center .pc-btn.big { padding: 22px; }
-.player[data-look="disney"] .pc-center .pc-btn:hover { background: rgba(4, 7, 20, .85); }
-.player[data-look="disney"].is-playing .pc-center { opacity: 0; }
-.player[data-look="disney"].is-playing:not(.idle):hover .pc-center { opacity: 1; }
+.player[data-look="hbo"] .pc-heading .pc-title { font-size: 1.15rem; font-weight: 300; letter-spacing: 4px; text-transform: uppercase; }
+.player[data-look="hbo"] .pc-heading .pc-sub { font-size: .8rem; letter-spacing: 2px; text-transform: uppercase; color: #9a98a6; }
+.player[data-look="hbo"] .pc-clock { font-size: 13px; letter-spacing: 1px; color: #cfcdd8; }
+.player[data-look="hbo"] .pc-scrub .knob { background: #fff; box-shadow: 0 0 0 4px rgba(139, 92, 246, .55); }
+.player[data-look="hbo"] .pc-bar { background: linear-gradient(transparent, rgba(0, 0, 0, .95)); }
+.player[data-look="hbo"] .pc-skip { background: rgba(0, 0, 0, .7); border-radius: 0; font-weight: 400; letter-spacing: 2px; text-transform: uppercase; }
+.player[data-look="hbo"] .pc-menu { background: #0c0b10; border: 1px solid rgba(255, 255, 255, .2); border-radius: 2px; }
+.player[data-look="hbo"] .pc-menu h4 { font-weight: 300; letter-spacing: 3px; }
+.player[data-look="hbo"] .pc-menu button { border-radius: 0; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; }
+.player[data-look="hbo"] .pc-menu button.on { color: #fff; box-shadow: inset 2px 0 0 var(--accent); }
+.player[data-look="hbo"] .pc-next { border-radius: 0; background: #0c0b10; }
+
+/* ===== Disney+: the play controls sit in the middle of the bar, white line, navy pop-ups ===== */
+.player[data-look="disney"] { --pc-icon: 30px; --pc-pad: 30px; --pc-fill: #fff; --pc-menu-bottom: 114px; }
+.player[data-look="disney"] .pc-top { background: linear-gradient(rgba(4, 7, 20, .92), transparent); }
+.player[data-look="disney"] .pc-bar { background: linear-gradient(transparent, rgba(4, 7, 20, .96)); }
+.player[data-look="disney"] .pc-heading .pc-title { font-size: 1.4rem; font-weight: 600; }
+.player[data-look="disney"] .pc-cluster { gap: 22px; }
+.player[data-look="disney"] .pc-cluster .pc-btn .icon { width: 40px; height: 40px; }
+.player[data-look="disney"] .pc-cluster .pc-btn.play .icon { width: 50px; height: 50px; }
+.player[data-look="disney"] .pc-skip { background: #f9f9f9; color: #040714; border: 0; border-radius: 6px; letter-spacing: 1.5px; text-transform: uppercase; }
+.player[data-look="disney"] .pc-menu { background: rgba(14, 19, 48, .97); border: 1px solid rgba(249, 249, 249, .2); border-radius: 10px; box-shadow: 0 12px 36px rgba(0, 0, 0, .6); }
+.player[data-look="disney"] .pc-menu button { border-radius: 6px; }
+.player[data-look="disney"] .pc-menu button.on { color: var(--accent); }
+.player[data-look="disney"] .pc-eps-list button { border-radius: 0; }
+.player[data-look="disney"] .pc-next { border-radius: 10px; background: rgba(14, 19, 48, .97); }

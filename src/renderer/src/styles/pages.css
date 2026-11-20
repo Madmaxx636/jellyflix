@@ -49,6 +49,7 @@ select:focus { outline: 2px solid var(--accent); }
 /* ===== search ===== */
 .search-input { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--btn-radius); padding: 10px 16px; max-width: 760px; margin-bottom: 14px; }
 .search-input input { flex: 1; background: transparent; border: 0; outline: 0; color: #fff; font-size: 1.3rem; padding: 6px 0; }
+.search-input:focus-within { border-color: #fff; }
 /* Netflix and Hulu search from the top bar */
 [data-theme="netflix"] .search-input, [data-theme="hulu"] .search-input { display: none; }
 .seg.chips { margin-bottom: 18px; }
@@ -75,18 +76,22 @@ select:focus { outline: 2px solid var(--accent); }
 .episodes h3, .extras h3, .about h3 { margin: 0 0 10px; font-size: 1.3rem; }
 .ep-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .ep-head h3 { margin: 0; }
-.episode { display: flex; gap: 18px; align-items: center; padding: 14px 12px; border-bottom: 1px solid var(--line); cursor: pointer; border-radius: var(--radius); }
+.episode { position: relative; display: flex; gap: 18px; align-items: center; padding: 14px 12px; border-bottom: 1px solid var(--line); cursor: pointer; border-radius: var(--radius); }
 .episode:hover { background: rgba(255, 255, 255, .06); }
+/* the whole row is one link; the watched button sits above that link */
+.ep-link { position: absolute; inset: 0; z-index: 1; border-radius: var(--radius); }
+.ep-link:focus-visible { outline: none; }
+.episode:has(.ep-link:focus-visible) { outline: 2px solid #fff; outline-offset: -2px; }
 .episode .num { font-size: 1.5rem; color: var(--muted); width: 34px; text-align: center; flex: none; }
 .ep-thumb { position: relative; width: 168px; aspect-ratio: 16 / 9; flex: none; background: var(--card-bg); border-radius: var(--radius); overflow: hidden; }
 .ep-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .ep-play { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(0, 0, 0, .45); opacity: 0; transition: opacity .15s; }
-.episode:hover .ep-play { opacity: 1; }
+.episode:hover .ep-play, .episode:has(.ep-link:focus-visible) .ep-play { opacity: 1; }
 .ep-body { flex: 1; min-width: 0; }
 .ep-title { font-weight: 600; margin-bottom: 4px; }
 .ep-ov { color: var(--muted); font-size: 14px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .ep-time { color: var(--muted); font-size: 14px; white-space: nowrap; }
-.ep-watched { background: none; border: 2px solid var(--line); color: var(--muted); width: 34px; height: 34px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; flex: none; padding: 0; }
+.ep-watched { position: relative; z-index: 2; background: none; border: 2px solid var(--line); color: var(--muted); width: 34px; height: 34px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; flex: none; padding: 0; }
 .ep-watched:hover { color: #fff; border-color: #fff; }
 .ep-watched.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .extras-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }

@@ -18,14 +18,16 @@ export function SettingRow({ id, label, hint, children }: { id: string; label: s
   )
 }
 
-export function Select<T extends string | number>({ value, onChange, options, label }: {
+/** A drop-down for a fixed set of choices. */
+export function Select<T extends string | number>({ id, value, onChange, options, label }: {
+  id?: string
   value: T
   onChange: (v: T) => void
   options: { value: T; label: string }[]
   label: string
 }) {
   return (
-    <select value={String(value)} aria-label={label}
+    <select id={id} value={String(value)} aria-label={label}
       onChange={e => { const o = options.find(x => String(x.value) === e.target.value); if (o) onChange(o.value) }}>
       {options.map(o => <option key={String(o.value)} value={String(o.value)}>{o.label}</option>)}
     </select>

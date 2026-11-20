@@ -28,11 +28,16 @@ any of them. Every look has the same features; the look changes the layout, the 
   button, extras, "More like this", and for shows a season menu with episode thumbnails and progress.
 
 **Player**
+- Each look has its own: where the title, the clocks and the controls sit, what the pop-ups look like and what they are
+  called (see the table below). All of them offer the same things:
 - Audio track and subtitle choice, quality (Auto, 1080p, 720p, 480p), speed, an episode list, a scrub bar with intro and
   credits marked, Skip Intro (a button, or automatic), a "Next episode" card with a countdown and autoplay, and resume
   from where you stopped. Progress is reported back to Jellyfin so Continue Watching stays right.
 - Keys: Space or K play/pause, ←/→ or J/L ±10 s, ↑/↓ volume, M mute, F full screen, C subtitles on/off, N next episode,
-  Esc closes a menu, leaves full screen, then goes back.
+  Esc closes a menu, leaves full screen, then goes back. On the seek bar itself ←/→ move 5 s, Page Up / Page Down a
+  minute, Home / End jump to the ends.
+- A short network or decoding hiccup is retried before you're told; a refused or failing stream says so. Media keys
+  and the system's "now playing" show and control the title.
 
 **Settings**
 - Playback: autoplay next episode, skip intros, preferred audio language, subtitles (off, only when the audio isn't your
@@ -43,6 +48,13 @@ any of them. Every look has the same features; the look changes the layout, the 
 
 **Profiles**
 - If the server lists its users, the sign-in screen shows them as a "Who's watching?" picker.
+
+**Everyday behaviour**
+- Back returns to where you were, with a grid's loaded titles and scroll position intact. Pages show placeholders while
+  loading and a "Try again" message when something fails. If the server ends your session you are signed out with the
+  reason shown.
+- Everything can be reached from the keyboard (a "Skip to content" link, visible focus, Esc closes menus).
+- The window remembers its size and place, and starting the app twice brings the open window forward.
 
 ## The four looks
 
@@ -57,6 +69,7 @@ any of them. Every look has the same features; the look changes the layout, the 
 | Settings are called | Account | Account | Settings | App Settings |
 | Settings layout | ruled sections | cards | side menu | list of rows |
 | Title page | stacked sections | tabs | tabs | tabs |
+| Player | red line with the time left, title in the middle of the bar, a "You're watching" panel on pause, a speed button | green line with the time so far and left, title and episode up top, one Settings pop-up (quality, speed) | hairline, spaced capitals, square controls, Settings | white line, rewind / play / forward in the middle of the bar, Settings |
 | Extra | numbered "Top 10" row | | | |
 
 The top bar folds into a menu button when the window is narrow.
@@ -70,6 +83,8 @@ The app signs in with the standard `Authorization: MediaBrowser …` header and 
 Newer routes (`/UserViews`, `/UserItems/Resume`, `/Items/Latest`, `/Items/{id}`, `/UserFavoriteItems`,
 `/UserPlayedItems`) are tried first and the older `/Users/{id}/…` ones are used when a server doesn't know them.
 
+- Netflix's player has no quality picker, as on the real one; set the quality in Settings. The other looks have it in
+  the player's Settings pop-up.
 - Skipping intros and credits needs the markers Jellyfin keeps as media segments (10.10 and later).
 - Playback always goes through Jellyfin's HLS stream (H.264/AAC). Choosing another audio track or quality asks the server to
   re-encode and carries on from the same spot. Direct play is not implemented.
@@ -77,10 +92,40 @@ Newer routes (`/UserViews`, `/UserItems/Resume`, `/Items/Latest`, `/Items/{id}`,
 - HTTPS with a self-signed certificate is not supported yet.
 - Only video libraries are browsable (music, books and live TV are hidden).
 
+## Security
+
+- The page runs in a sandbox with no Node access and no preload script. The only permission it can get is full screen.
+- It can't navigate away from the app; web addresses (such as trailers) open in the system browser, and only http and
+  https ones are offered.
+- Pictures, video and API calls go to whichever server you sign in to, so the content policy can't pin them to one
+  address; it does forbid plugins, frames, a `<base>` tag and form posts, and allows scripts only from the app.
+- Your sign-in token is kept in the app's local storage, in its profile folder, unencrypted. Signing out removes it.
+  The video address carries the token as `ApiKey`, because a video element can't send headers.
+
 ## Development
 ```bash
 npm install
-npm run dev
+npm run dev          # the app, with live reload
+npm run check        # type check, lint and unit tests
+npm run build        # what `npm run test:e2e` runs against
+```
+
+Where things are:
+
+```
+src/main              the Electron side: the window, permissions and navigation limits, remembered window place
+src/shared            the little that both sides use
+src/renderer/src
+  api/                the Jellyfin client (types, session, http, connect, client); import it from api/jellyfin
+  hooks/              loading with cancel and retry, Back memory, scroll restoration, address parameters
+  components/         cards, rows, the top bar, the banner, and the player's parts (components/player)
+  pages/              one file per screen
+  styles/             one stylesheet each for the base, the top bar, the pages and the player
+  theme.tsx           everything that differs between the four looks
+  settingsModel.ts    what the settings are and the logic around them
+tests/unit            vitest
+tests/e2e             end-to-end checks against fake servers (see its README)
+build/icon.png        the app icon; `node scripts/make-icon.mjs` draws it again
 ```
 
 ## Packaging
@@ -89,5 +134,10 @@ npm run dist   # AppImage/deb on Linux, nsis on Windows, dmg on macOS (build on 
 ```
 
 ## Testing
+```bash
+npm test               # unit tests
+npm run test:e2e       # drives the built app through every look (about 25 minutes; see tests/e2e/README.md)
+npm run test:e2e:signin
+```
 `JELLYFLIX_HIDDEN=1` runs the app offscreen with no window, so it can be driven over `--remote-debugging-port` against a
-test server without anything appearing on the desktop.
+test server without anything appearing on the desktop. The end-to-end tests use it.

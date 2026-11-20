@@ -25,6 +25,10 @@ html, body, #root { margin: 0; height: 100%; }
 body { background: var(--bg); color: var(--fg); font-family: system-ui, "Helvetica Neue", Arial, sans-serif; overflow-x: hidden; }
 [data-theme="disney"] body { background: linear-gradient(#040714, #0a0f2e 40%, #1a1d4d); background-attachment: fixed; }
 button, select, input { font-family: inherit; }
+:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+main:focus { outline: none; }
+.skip-link { position: fixed; top: 8px; left: 8px; z-index: 200; transform: translateY(-200%); background: #fff; color: #000; border: 0; border-radius: var(--btn-radius); padding: 10px 16px; font-weight: 700; cursor: pointer; }
+.skip-link:focus { transform: none; }
 ::-webkit-scrollbar { width: 10px; height: 0; }
 ::-webkit-scrollbar-thumb { background: #333; border-radius: 5px; }
 .pad { padding: 100px 4%; }
@@ -68,7 +72,7 @@ button, select, input { font-family: inherit; }
 .hero-dots button { width: 9px; height: 9px; border-radius: 50%; border: 0; padding: 0; background: rgba(255, 255, 255, .4); cursor: pointer; transition: width .25s, background .25s; }
 .hero-dots button.on { width: 26px; border-radius: 6px; background: #fff; }
 .hero-nav { position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; width: 44px; height: 64px; border: 0; background: rgba(0, 0, 0, .35); color: #fff; cursor: pointer; opacity: 0; transition: opacity .2s; display: grid; place-items: center; }
-.hero:hover .hero-nav { opacity: 1; }
+.hero:hover .hero-nav, .hero-nav:focus-visible { opacity: 1; }
 .hero-nav.prev { left: 0; } .hero-nav.next { right: 0; }
 
 /* ===== rows and cards ===== */
@@ -83,22 +87,27 @@ button, select, input { font-family: inherit; }
 /* padding gives the hovered card room to grow; the negative margin takes it back so rows don't drift apart */
 .row-scroll { display: flex; gap: 6px; overflow-x: auto; padding: 22px 4% 30px; margin: -16px 0 -24px; scrollbar-width: none; scroll-padding: 0 4%; }
 .arrow { position: absolute; top: 0; bottom: 0; width: 4%; z-index: 4; border: 0; background: rgba(20, 20, 20, .55); color: #fff; cursor: pointer; opacity: 0; transition: opacity .2s; display: grid; place-items: center; padding: 0; }
-.row-wrap:hover .arrow { opacity: 1; }
+.row-wrap:hover .arrow, .arrow:focus-visible { opacity: 1; }
 .arrow.left { left: 0; } .arrow.right { right: 0; }
 
 .card { position: relative; flex: 0 0 auto; width: var(--card-w); aspect-ratio: 2 / 3; border-radius: var(--radius); overflow: hidden; background: var(--card-bg); cursor: pointer; transition: transform .2s, box-shadow .2s; outline: none; }
 .card.wide { width: var(--card-wide-w); aspect-ratio: 16 / 9; }
 .card img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.card:hover, .card:focus-visible { transform: scale(1.08); z-index: 3; box-shadow: 0 8px 24px rgba(0, 0, 0, .7); }
+.card:hover, .card:has(.card-link:focus-visible) { transform: scale(1.08); z-index: 3; box-shadow: 0 8px 24px rgba(0, 0, 0, .7); }
+/* the whole card is one link; the buttons on it sit above that link */
+.card-link { position: absolute; inset: 0; z-index: 1; border-radius: inherit; }
+.card-link:focus-visible { outline: none; }
+.card:has(.card-link:focus-visible) { outline: 3px solid #fff; outline-offset: 2px; }
 .noimg { display: grid; place-items: center; height: 100%; padding: 10px; text-align: center; color: var(--muted); }
 .card-title { position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 12px 10px; font-size: 14px; font-weight: 600; background: linear-gradient(transparent, rgba(0, 0, 0, .85)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity .15s; }
 .card:hover .card-title, .card:focus-within .card-title { opacity: 0; }
-.card-hover { position: absolute; left: 0; right: 0; bottom: 0; padding: 36px 10px 10px; background: linear-gradient(transparent, rgba(0, 0, 0, .94) 55%); opacity: 0; transition: opacity .15s; display: flex; flex-direction: column; gap: 5px; }
+.card-hover { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; pointer-events: none; padding: 36px 10px 10px; background: linear-gradient(transparent, rgba(0, 0, 0, .94) 55%); opacity: 0; transition: opacity .15s; display: flex; flex-direction: column; gap: 5px; }
 .card:hover .card-hover, .card:focus-within .card-hover { opacity: 1; }
 .card-name { font-weight: 700; font-size: 14px; line-height: 1.2; }
 .card-meta { font-size: 12px; color: var(--muted); }
-.card-btns { display: flex; gap: 6px; margin-top: 2px; }
-.card-btns button { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .6); background: rgba(20, 20, 20, .75); color: #fff; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.card-btns { display: flex; gap: 6px; margin-top: 2px; align-items: center; }
+.card-more { margin-left: auto; display: grid; place-items: center; opacity: .8; }
+.card-btns button { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .6); background: rgba(20, 20, 20, .75); color: #fff; display: grid; place-items: center; cursor: pointer; padding: 0; pointer-events: auto; }
 .card-btns button:hover { border-color: #fff; }
 .card-btns button[data-act="play"] { background: #fff; color: #000; border-color: #fff; }
 .card-btns button.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
@@ -163,6 +172,7 @@ button, select, input { font-family: inherit; }
 .login form { display: grid; gap: 14px; width: 360px; padding: 36px; background: rgba(0, 0, 0, .75); border-radius: 6px; }
 .login h2 { margin: 0 0 6px; }
 .login input { background: #333; border: 0; color: #fff; padding: 14px; border-radius: 4px; font-size: 15px; }
+.login .notice { max-width: 420px; margin: 0; text-align: center; background: rgba(255, 255, 255, .08); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 16px; }
 .login .btn.primary { background: var(--accent); color: var(--on-accent); justify-content: center; }
 .profiles { text-align: center; }
 .profiles h2 { margin: 0 0 14px; font-weight: 500; }
@@ -171,3 +181,30 @@ button, select, input { font-family: inherit; }
 .profile .pic, .profile img { width: 84px; height: 84px; border-radius: var(--avatar-radius); object-fit: cover; display: grid; place-items: center; font-size: 34px; font-weight: 700; color: #fff; border: 3px solid transparent; }
 .profile:hover, .profile.on { color: #fff; }
 .profile:hover .pic, .profile.on .pic, .profile:hover img, .profile.on img { border-color: #fff; }
+
+/* ===== loading, errors, messages ===== */
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.skeleton-card, .skeleton-title, .skeleton-tile {
+  background: linear-gradient(90deg, var(--card-bg) 25%, color-mix(in srgb, var(--card-bg), #fff 9%) 50%, var(--card-bg) 75%) 0 0 / 200% 100%;
+  animation: shimmer 1.6s linear infinite; border-radius: var(--radius);
+}
+.skeleton-row { margin: 0 4% 30px; }
+.page .skeleton-row { margin-left: 0; margin-right: 0; }
+.skeleton-title { width: 180px; height: 22px; margin-bottom: 14px; }
+.skeleton-cards { display: flex; gap: 6px; overflow: hidden; }
+.skeleton-card { flex: none; width: var(--card-w); aspect-ratio: 2 / 3; }
+.skeleton-card.wide { width: var(--card-wide-w); aspect-ratio: 16 / 9; }
+.skeleton-tile { aspect-ratio: 16 / 9; }
+
+.errorbox { max-width: 640px; margin: 40px 0; padding: 20px 22px; background: var(--surface); border: 1px solid rgba(255, 107, 107, .5); border-radius: var(--radius); }
+.errorbox p { margin: 0 0 8px; }
+.errorbox .detail { color: var(--muted); font-size: 14px; word-break: break-word; }
+.errorbox .btn { margin-top: 10px; }
+.crash { min-height: 100%; display: grid; place-content: center; justify-items: center; gap: 14px; padding: 40px; text-align: center; }
+.crash h1 { margin: 0; }
+.crash p { margin: 0; max-width: 520px; color: var(--muted); }
+
+.toasts { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 100; display: grid; gap: 8px; width: min(560px, 92vw); pointer-events: none; }
+.toast { pointer-events: auto; display: flex; align-items: center; justify-content: space-between; gap: 14px; background: #262626; color: #fff; border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 12px 14px; font-size: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, .6); animation: rise .25s ease both; }
+.toast button { background: none; border: 0; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; padding: 0 4px; }
+.toast button:hover { color: #fff; }

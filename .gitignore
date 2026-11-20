@@ -2,3 +2,7 @@ node_modules/
 out/
 dist/
 *.log
+tests/e2e/.out/
+tests/e2e/.cache/
+coverage/
+*.tsbuildinfo

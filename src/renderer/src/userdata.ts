@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type { Api, Item } from './api/jellyfin'
+import { toast } from './toast'
 
 /**
  * My List and watched state changes the moment you click, everywhere on screen, before the server has answered.
@@ -44,14 +45,14 @@ export async function toggleFavorite(api: Api, item: Item, to?: boolean) {
   const prev = flagsOf(item).fav
   const next = to ?? !prev
   change(item, { fav: next })
-  try { await api.setFavorite(item.Id, next) } catch { change(item, { fav: prev }) }
+  try { await api.setFavorite(item.Id, next) } catch { change(item, { fav: prev }); toast(`Couldn't ${next ? 'add' : 'remove'} “${item.Name}”: the server didn't accept the change.`) }
 }
 
 export async function togglePlayed(api: Api, item: Item, to?: boolean) {
   const prev = flagsOf(item).played
   const next = to ?? !prev
   change(item, { played: next })
-  try { await api.setPlayed(item.Id, next) } catch { change(item, { played: prev }) }
+  try { await api.setPlayed(item.Id, next) } catch { change(item, { played: prev }); toast(`Couldn't mark “${item.Name}” as ${next ? 'watched' : 'unwatched'}: the server didn't accept the change.`) }
 }
 
 /** Forget everything on sign-out so the next profile starts clean. */

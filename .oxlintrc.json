@@ -1,0 +1,45 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "typescript",
+    "react",
+    "jsx-a11y",
+    "import",
+    "promise"
+  ],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "warn"
+  },
+  "env": {
+    "browser": true,
+    "es2022": true,
+    "node": true
+  },
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "react/exhaustive-deps": "error",
+    "react/rules-of-hooks": "error",
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "no-underscore-dangle": ["error", { "allow": ["__APP_VERSION__"] }],
+    "import/no-unassigned-import": ["error", { "allow": ["**/*.css"] }],
+    "promise/always-return": "off",
+    "promise/no-callback-in-promise": "off"
+  },
+  "ignorePatterns": [
+    "out",
+    "dist",
+    "node_modules"
+  ],
+  "overrides": [
+    {
+      "files": [
+        "tests/**"
+      ],
+      "rules": {
+        "eslint/no-await-in-loop": "off"
+      }
+    }
+  ]
+}
