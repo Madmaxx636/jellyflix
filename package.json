@@ -7,6 +7,7 @@
     "node": ">=22.12"
   },
   "main": "out/main/index.js",
+  "desktopName": "jellyflix.desktop",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
@@ -33,7 +34,8 @@
         "AppImage",
         "deb"
       ],
-      "category": "AudioVideo"
+      "category": "AudioVideo",
+      "syncDesktopName": true
     },
     "win": {
       "target": [
