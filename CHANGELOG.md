@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- MIT license, and a note in the README that the project is not affiliated with Netflix, Hulu, HBO, Disney or Jellyfin.
+
 ## 0.1.0 (2026-11-19)
 
 ### Added

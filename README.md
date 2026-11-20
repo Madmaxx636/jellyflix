@@ -6,6 +6,10 @@ Built with Electron, React and TypeScript. Runs on Linux, Windows and macOS.
 The four looks are approximations of how those services are laid out and worded. They use no logos or artwork from
 any of them. Every look has the same features; the look changes the layout, the wording and the styling.
 
+Jellyflix is an independent project. It is not affiliated with, endorsed by or sponsored by Netflix, Hulu, HBO, Max,
+Disney, Disney+ or the Jellyfin project. Those names belong to their owners and are used here only to say which service
+each look is modelled on.
+
 ## What it does
 
 **Browse**
@@ -141,3 +145,7 @@ npm run test:e2e:signin
 ```
 `JELLYFLIX_HIDDEN=1` runs the app offscreen with no window, so it can be driven over `--remote-debugging-port` against a
 test server without anything appearing on the desktop. The end-to-end tests use it.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

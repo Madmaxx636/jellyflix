@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "A Jellyfin desktop client that looks and works like Netflix, Hulu, HBO or Disney+",
   "private": true,
+  "license": "MIT",
   "engines": {
     "node": ">=22.12"
   },
