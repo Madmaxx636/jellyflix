@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0 (2026-11-19)
 
 ### Added
 - The player now looks and works like each service's own. Netflix: a red progress line with the time left at its end,
