@@ -29,7 +29,8 @@
     "productName": "Jellyflix",
     "files": [
       "out/**",
-      "LICENSE"
+      "LICENSE",
+      "THIRD-PARTY-NOTICES.txt"
     ],
     "linux": {
       "target": [

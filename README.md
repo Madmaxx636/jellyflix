@@ -148,4 +148,4 @@ test server without anything appearing on the desktop. The end-to-end tests use 
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). The libraries the app bundles keep their own licenses: see [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).

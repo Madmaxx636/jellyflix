@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Third-party notices (THIRD-PARTY-NOTICES.txt) for the libraries the app bundles: React, react-router and hls.js among them. The file is included in the app.
+
 ## 0.1.1 (2026-11-19)
 
 ### Added
