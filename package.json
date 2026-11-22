@@ -1,9 +1,10 @@
 {
   "name": "jellyflix",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A Jellyfin desktop client that looks and works like Netflix, Hulu, HBO or Disney+",
   "private": true,
   "license": "MIT",
+  "author": "Lane <16749601+Madmaxx636@users.noreply.github.com>",
   "engines": {
     "node": ">=22.12"
   },
@@ -35,20 +36,26 @@
     "linux": {
       "target": [
         "AppImage",
-        "deb"
+        "deb",
+        "rpm",
+        "pacman",
+        "tar.gz"
       ],
       "category": "AudioVideo",
+      "maintainer": "Lane <16749601+Madmaxx636@users.noreply.github.com>",
       "syncDesktopName": true,
       "executableArgs": []
     },
     "win": {
       "target": [
-        "nsis"
+        "nsis",
+        "portable"
       ]
     },
     "mac": {
       "target": [
-        "dmg"
+        "dmg",
+        "zip"
       ],
       "category": "public.app-category.entertainment"
     },
@@ -57,6 +64,11 @@
       "enableNodeOptionsEnvironmentVariable": false,
       "enableNodeCliInspectArguments": false,
       "onlyLoadAppFromAsar": true
+    },
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     }
   },
   "devDependencies": {

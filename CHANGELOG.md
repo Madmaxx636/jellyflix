@@ -1,8 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.1.2 (2026-11-22)
 
 ### Added
+- Builds for Windows (installer and portable), macOS (dmg and zip, Intel and Apple silicon) and Linux (AppImage, deb, rpm, pacman and tar.gz, x64 and arm64), made by a GitHub workflow when a version tag is pushed. The Windows and macOS builds are not signed.
 - Third-party notices (THIRD-PARTY-NOTICES.txt) for the libraries the app bundles: React, react-router and hls.js among them. The file is included in the app.
 
 ## 0.1.1 (2026-11-19)
