@@ -41,6 +41,7 @@ class MainActivity : ComponentActivity() {
 private fun Root(app: JellyflixApp) {
     var session by remember { mutableStateOf(app.store.session) }
     var look by remember { mutableStateOf(lookById(app.store.look)) }
+    var trusted by remember { mutableIntStateOf(app.store.trustedCerts.size) }
     val tv = remember { isTv(app) }
     val stack = remember { mutableStateListOf<Route>(Route.Home) }
 
@@ -78,7 +79,7 @@ private fun Root(app: JellyflixApp) {
                             when (route) {
                                 Route.Home -> HomeScreen(api, look, open) { stack.add(Route.Library(it)) }
                                 Route.Search -> SearchScreen(api, look, open)
-                                Route.Settings -> SettingsScreen(look, s, { look = it; app.store.look = it.id }) { app.store.session = null; session = null }
+                                Route.Settings -> SettingsScreen(look, s, trusted, { look = it; app.store.look = it.id }, { app.store.trustedCerts = emptySet(); trusted = 0 }) { app.store.session = null; session = null }
                                 is Route.Library -> LibraryScreen(api, look, route.item, open)
                                 is Route.Details -> DetailsScreen(api, look, route.id, { stack.add(Route.Play(it)) }, open)
                                 is Route.Play -> Unit

@@ -55,24 +55,29 @@ fun explainSignInFailure(e: Throwable, found: Found): String {
 }
 
 class Connector(private val http: Http) {
-    private suspend fun probe(base: String): Pair<String, PublicInfo>? = withContext(Dispatchers.IO) {
+    private class Probe(val hit: Pair<String, PublicInfo>? = null, val untrusted: CertificateNotTrusted? = null)
+
+    private suspend fun probe(base: String): Probe = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder().url("$base/System/Info/Public").build()
             http.client.newBuilder().callTimeout(5, TimeUnit.SECONDS).build().newCall(request).await().use { response ->
-                if (!response.isSuccessful) return@use null
+                if (!response.isSuccessful) return@use Probe()
                 val info = JellyfinJson.decodeFromString<PublicInfo>(response.body?.string().orEmpty())
-                if (info.serverName == null && info.version == null && info.productName == null) return@use null // some other web server
+                if (info.serverName == null && info.version == null && info.productName == null) return@use Probe() // some other web server
                 // OkHttp follows redirects (http to https, a canonical host), so the final address is where the server lives.
-                response.request.url.toString().removeSuffix("/System/Info/Public") to info
+                Probe(response.request.url.toString().removeSuffix("/System/Info/Public") to info)
             }
-        } catch (e: Exception) { null }
+        } catch (e: Exception) { Probe(untrusted = untrustedIn(e)) }
     }
 
-    /** Tries every likely address at once and takes the best-ranked one that answers like Jellyfin. */
+    /** Tries every likely address at once and takes the best-ranked one that answers like Jellyfin. Throws [CertificateNotTrusted] when the only answer came with a certificate the person hasn't approved. */
     suspend fun findServer(input: String): Found {
         val tried = addressCandidates(input)
         if (tried.isEmpty()) throw IllegalArgumentException("“${input.trim()}” doesn't look like a server address. Try something like 192.168.1.10:8096 or https://jellyfin.example.com")
-        val hit = coroutineScope { tried.map { async { probe(it) } }.awaitAll() }.firstOrNull { it != null }
+        val results = coroutineScope { tried.map { async { probe(it) } }.awaitAll() }
+        val hit = results.firstOrNull { it.hit != null }?.hit
+        // Nothing answered, but one address did present a certificate this device doesn't know: ask about that one.
+        if (hit == null) results.firstNotNullOfOrNull { it.untrusted }?.let { throw it }
         return Found(hit?.first ?: tried.first(), hit?.second, tried)
     }
 

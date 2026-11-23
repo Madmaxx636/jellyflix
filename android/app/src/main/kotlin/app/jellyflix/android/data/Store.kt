@@ -21,4 +21,9 @@ class Store(context: Context) {
     var lastServer: String
         get() = prefs.getString("lastServer", "") ?: ""
         set(value) { prefs.edit().putString("lastServer", value).apply() }
+
+    /** SHA-256 fingerprints of self-made server certificates the person chose to trust. */
+    var trustedCerts: Set<String>
+        get() = prefs.getStringSet("trustedCerts", null)?.toSet() ?: emptySet()
+        set(value) { prefs.edit().putStringSet("trustedCerts", value.toSet()).apply() }
 }

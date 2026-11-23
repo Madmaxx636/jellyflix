@@ -35,7 +35,9 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import app.jellyflix.android.data.*
@@ -88,7 +90,12 @@ private const val JUMP_MS = 10_000L
 private fun Video(api: JellyfinApi, look: Look, item: Item, plan: Playback, onFallback: (String) -> Unit, onExit: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val player = remember(plan.url) { ExoPlayer.Builder(context).build() }
+    val player = remember(plan.url) {
+        val client = (context.applicationContext as app.jellyflix.android.JellyflixApp).http.client
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(OkHttpDataSource.Factory(client)))
+            .build()
+    }
     val start = remember(item.id) { (item.userData?.playbackPositionTicks ?: 0L) / 10_000 }
 
     var visible by remember { mutableStateOf(true) }

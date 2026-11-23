@@ -66,7 +66,40 @@ fun LoginScreen(app: JellyflixApp, look: Look, onSignedIn: (Session) -> Unit) {
     var password by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var untrusted by remember { mutableStateOf<CertificateNotTrusted?>(null) }
     val scope = rememberCoroutineScope()
+    suspend fun signIn() {
+        try { app.store.lastServer = server; onSignedIn(app.connector.login(server, user, password)) }
+        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (e: CertificateNotTrusted) { untrusted = e }
+        catch (e: Exception) { error = e.message ?: "Couldn't sign in." }
+        busy = false
+    }
+    untrusted?.let { cert ->
+        AlertDialog(
+            onDismissRequest = { untrusted = null },
+            title = { Text("Trust this server?") },
+            text = {
+                Column {
+                    Text("The server's certificate isn't one this device knows. That is normal for a home server with a certificate it made itself. Only trust it if the fingerprint below is the one you expect.", style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.height(10.dp))
+                    Text("Certificate: ${cert.subject}", style = MaterialTheme.typography.bodySmall)
+                    Text("Issued by: ${cert.issuer}", style = MaterialTheme.typography.bodySmall)
+                    Text("Valid: ${java.text.DateFormat.getDateInstance().format(java.util.Date(cert.validFrom))} to ${java.text.DateFormat.getDateInstance().format(java.util.Date(cert.validTo))}", style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.height(6.dp))
+                    Text("SHA-256: ${cert.fingerprint}", style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    app.store.trustedCerts = app.store.trustedCerts + cert.fingerprint
+                    untrusted = null; busy = true; error = null
+                    scope.launch { signIn() }
+                }) { Text("Trust and continue") }
+            },
+            dismissButton = { TextButton(onClick = { untrusted = null }) { Text("Cancel") } },
+        )
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Text("JELLYFLIX", color = look.accent, style = MaterialTheme.typography.displaySmall)
         Spacer(Modifier.height(24.dp))
@@ -81,11 +114,7 @@ fun LoginScreen(app: JellyflixApp, look: Look, onSignedIn: (Session) -> Unit) {
             Button(
                 onClick = {
                     busy = true; error = null
-                    scope.launch {
-                        try { app.store.lastServer = server; onSignedIn(app.connector.login(server, user, password)) }
-                        catch (e: Exception) { error = e.message ?: "Couldn't sign in." }
-                        busy = false
-                    }
+                    scope.launch { signIn() }
                 },
                 enabled = !busy && server.isNotBlank() && user.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
@@ -289,7 +318,7 @@ fun DetailsScreen(api: JellyfinApi, look: Look, id: String, onPlay: (Item) -> Un
 // ---------------------------------------------------------------- settings
 
 @Composable
-fun SettingsScreen(look: Look, session: Session, onLook: (Look) -> Unit, onSignOut: () -> Unit) {
+fun SettingsScreen(look: Look, session: Session, trusted: Int, onLook: (Look) -> Unit, onForgetCerts: () -> Unit, onSignOut: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Settings", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(16.dp))
@@ -300,6 +329,10 @@ fun SettingsScreen(look: Look, session: Session, onLook: (Look) -> Unit, onSignO
         }
         Spacer(Modifier.height(24.dp))
         Text("Signed in as ${session.userName} on ${session.server}", color = Color(0xFFB3B3B3), style = MaterialTheme.typography.bodySmall)
+        if (trusted > 0) {
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(onClick = onForgetCerts) { Text("Forget $trusted trusted certificate${if (trusted == 1) "" else "s"}") }
+        }
         Spacer(Modifier.height(12.dp))
         OutlinedButton(onClick = onSignOut) { Text("Sign out") }
     }
