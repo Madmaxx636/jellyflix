@@ -61,7 +61,7 @@ private fun Root(app: JellyflixApp) {
                 BackHandler(enabled = stack.size > 1) { stack.removeAt(stack.lastIndex) }
                 val open: (Item) -> Unit = { stack.add(Route.Details(it.id)) }
                 if (route is Route.Play) {
-                    PlayerScreen(api, route.item) { stack.removeAt(stack.lastIndex) }
+                    PlayerScreen(api, look, route.item) { stack.removeAt(stack.lastIndex) }
                 } else {
                     Scaffold(
                         containerColor = look.background,
