@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Android app for phones, tablets and Google TV, as one signed `.apk` on each release. Sign in, browse libraries, search,
+  My List, details with seasons and episodes, and playback with its own controls (seek bar, 10 s jumps, audio and
+  subtitle choice, skip intro, remote control keys). It plays files directly when the device can and otherwise uses the
+  stream the server makes. The four looks are available in Settings, and on a TV the navigation moves to the top and tiles
+  get bigger. Not there yet: servers with a self-made certificate, and update checks.
+
 ## 0.2.1 (2026-11-23)
 
 ### Added
