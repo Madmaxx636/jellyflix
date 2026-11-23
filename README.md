@@ -94,11 +94,19 @@ Newer routes (`/UserViews`, `/UserItems/Resume`, `/Items/Latest`, `/Items/{id}`,
 
 - Netflix's player has no quality picker, as on the real one; set the quality in Settings. The other looks have it in
   the player's Settings pop-up.
+- The seek bar shows a preview picture when you point at it, if the library has made them (Jellyfin 10.9 and later,
+  "Trickplay" in the library settings).
+- The window can be as small as 420 px wide, so it fits half a screen; the player and the pages rearrange themselves.
 - Skipping intros and credits needs the markers Jellyfin keeps as media segments (10.10 and later).
-- Playback always goes through Jellyfin's HLS stream (H.264/AAC). Choosing another audio track or quality asks the server to
-  re-encode and carries on from the same spot. Direct play is not implemented.
+- Playback: the app tells Jellyfin what this player can decode (MP4, WebM and MKV with H.264, VP9 or AV1 video and AAC, MP3,
+  Opus, FLAC or Vorbis audio). A file that fits is played as it is (seeking is instant); anything else, such as HEVC video or
+  AC3 or DTS audio, is converted by the server into an HLS stream, copying whatever it can. If a file turns out not to play,
+  the app asks the server to convert it. Choosing another audio track, a picture subtitle or a quality asks for a new
+  stream and carries on from the same spot.
 - Text subtitles are shown by the player; picture subtitles (PGS, VobSub) are burned in by the server.
-- HTTPS with a self-signed certificate is not supported yet.
+- A server with a certificate it made itself: the first time, the app shows the certificate and asks whether to trust
+  that server. The choice is remembered for that exact certificate (a changed one is asked about again), and Settings > About
+  can forget it.
 - Only video libraries are browsable (music, books and live TV are hidden).
 
 ## Updates

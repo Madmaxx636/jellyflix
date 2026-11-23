@@ -29,6 +29,8 @@ export default function SettingsPage({ api, session, onLogout }: { api: Api; ses
   const { data: info } = useLoad(api, 'info', a => a.publicInfo())
   const [confirmReset, setConfirmReset] = useState(false)
   const updates = useUpdates()
+  const [trusted, setTrusted] = useState<string[]>([])
+  useEffect(() => { void window.jellyflix?.certificates.list().then(setTrusted, () => { /* none shown */ }) }, [])
 
   // The second click has to come soon after the first, or the question lapses.
   useEffect(() => {
@@ -160,6 +162,15 @@ export default function SettingsPage({ api, session, onLogout }: { api: Api; ses
                   </SettingRow>
                 )}
               </>
+            )}
+            {trusted.length > 0 && (
+              <SettingRow id="trusted" label="Servers you chose to trust" hint="Servers whose certificate this computer doesn't trust, which you allowed.">
+                <div className="set-trusted">
+                  {trusted.map(host => (
+                    <span key={host} className="set-value">{host} <button className="btn small" data-act="forget-cert" onClick={() => { void window.jellyflix?.certificates.forget(host).then(setTrusted) }}>Forget</button></span>
+                  ))}
+                </div>
+              </SettingRow>
             )}
             <SettingRow id="serverInfo" label="Server software">
               <span className="set-value">{info ? `${info.ServerName ?? 'Jellyfin'} · ${info.ProductName ?? 'Jellyfin Server'} ${info.Version ?? ''}` : 'Checking…'}</span>

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { Segment } from '../../api/jellyfin'
+import type { Segment, Trickplay } from '../../api/jellyfin'
 import type { PlayerControl, PlayerLayout, PlayerWords } from '../../theme'
 import { clock } from '../../util/time'
 import Icon, { type IconName } from '../Icon'
@@ -36,7 +36,7 @@ const SKIP_SECONDS = 10
  * What sits over the picture: the top bar, and the bar with the progress line and the controls. Which controls there are,
  * where they are, and where the title and the clocks go is up to the look (see `PlayerLayout` in theme.tsx).
  */
-export default function Chrome({ layout, say, episodesLabel, heading, state, available, segments, on }: {
+export default function Chrome({ layout, say, episodesLabel, heading, state, available, segments, preview, on }: {
   layout: PlayerLayout
   say: PlayerWords
   episodesLabel: string
@@ -45,6 +45,7 @@ export default function Chrome({ layout, say, episodesLabel, heading, state, ava
   /** Which of the optional controls make sense for what is playing. */
   available: { next: boolean; episodes: boolean; tracks: boolean }
   segments: Segment[]
+  preview?: { info: Trickplay; tile: (index: number) => string }
   on: ChromeActions
 }) {
   const remaining = Math.max(0, state.duration - state.time)
@@ -105,7 +106,7 @@ export default function Chrome({ layout, say, episodesLabel, heading, state, ava
       <div className="pc-bar">
         <div className="pc-progress">
           {layout.clocks === 'both' && <span className="pc-clock pc-elapsed">{clock(state.time)}</span>}
-          <Scrubber time={state.time} duration={state.duration} buffered={state.buffered} segments={segments} onSeek={on.seek} />
+          <Scrubber time={state.time} duration={state.duration} buffered={state.buffered} segments={segments} preview={preview} onSeek={on.seek} />
           <span className="pc-clock pc-remaining" title="Time left">{clock(remaining)}</span>
         </div>
         <div className="pc-row" data-middle={layout.middle.length ? 'cluster' : 'title'}>

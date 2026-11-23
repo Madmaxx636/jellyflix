@@ -1,5 +1,5 @@
 import { useEffect, type RefObject } from 'react'
-import type { Api, Prepared } from '../../api/jellyfin'
+import type { Api, Playback } from '../../api/jellyfin'
 
 const PROGRESS_EVERY_MS = 10_000
 
@@ -8,11 +8,11 @@ const PROGRESS_EVERY_MS = 10_000
  * every ten seconds, and once more at the end. Closing the window never runs a page's own clean-up, so the last report is
  * also sent when the page is hidden, in a request the browser finishes even as the page goes away.
  */
-export function usePlaybackReport(api: Api, id: string, prep: Prepared, video: RefObject<HTMLVideoElement | null>, position: RefObject<number>) {
+export function usePlaybackReport(api: Api, id: string, plan: Playback, video: RefObject<HTMLVideoElement | null>, position: RefObject<number>) {
   useEffect(() => {
     const body = () => ({
-      ItemId: id, MediaSourceId: prep.source.Id, PlaySessionId: prep.playSessionId,
-      PositionTicks: Math.floor(position.current * 1e7), IsPaused: !!video.current?.paused, PlayMethod: 'Transcode'
+      ItemId: id, MediaSourceId: plan.source.Id, PlaySessionId: plan.playSessionId,
+      PositionTicks: Math.floor(position.current * 1e7), IsPaused: !!video.current?.paused, PlayMethod: plan.method
     })
     let stopped = false
     const stop = (init: RequestInit) => {
@@ -29,5 +29,5 @@ export function usePlaybackReport(api: Api, id: string, prep: Prepared, video: R
       window.removeEventListener('pagehide', onPageHide)
       stop({})
     }
-  }, [api, id, prep, video, position])
+  }, [api, id, plan, video, position])
 }

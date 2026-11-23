@@ -2,7 +2,8 @@
 import { markFetched } from '../userdata'
 import { HttpError, req } from './http'
 import { deviceId } from './session'
-import type { Item, MediaSource, Page, Person, Prepared, PublicInfo, Query, Recommendation, Segment, Session, View } from './types'
+import { planPlayback, playbackRequest } from './playback'
+import type { Item, MediaSource, Page, Person, Playback, PlaybackInfoResponse, PlaybackOptions, Prepared, PublicInfo, Query, Recommendation, Segment, Session, View } from './types'
 
 const FIELDS = 'Overview,Genres,ProductionYear,OfficialRating,CommunityRating,RunTimeTicks'
 type ListOf<T> = { Items: T[]; TotalRecordCount?: number }
@@ -195,6 +196,9 @@ function build(s: Session, signal?: AbortSignal) {
       return `${s.server}/Videos/${seg(id)}/master.m3u8?${p}`
     },
     /** Text subtitles as WebVTT, which the video element can show on its own. */
+    /** One tile of seek-bar previews. */
+    trickplayUrl: (id: string, mediaSourceId: string, width: number, tile: number) =>
+      `${s.server}/Videos/${seg(id)}/Trickplay/${width}/${tile}.jpg?MediaSourceId=${encodeURIComponent(mediaSourceId)}&ApiKey=${encodeURIComponent(s.token)}`,
     subtitleUrl: (id: string, mediaSourceId: string, index: number) =>
       `${s.server}/Videos/${seg(id)}/${seg(mediaSourceId)}/Subtitles/${index}/0/Stream.vtt?ApiKey=${encodeURIComponent(s.token)}`,
     report: (kind: 'Playing' | 'Progress' | 'Stopped', body: object, init: RequestInit = {}) =>
@@ -216,7 +220,20 @@ function build(s: Session, signal?: AbortSignal) {
     const f = raw[k] as (...a: never[]) => Promise<unknown>
     ;(raw as Record<string, unknown>)[k] = (...a: never[]) => tracked(f(...a))
   }
-  return raw
+  /**
+   * How to play a title: the file itself when this player can, otherwise the stream the server makes. An older server that
+   * gives no stream address is asked for HLS the long way (see hlsUrl).
+   */
+  const playback = async (id: string, o: PlaybackOptions = {}): Promise<Playback> => {
+    const info = await get<PlaybackInfoResponse>(`/Items/${seg(id)}/PlaybackInfo`, { method: 'POST', body: JSON.stringify(playbackRequest(s.userId, o)) })
+    const plan = planPlayback({ server: s.server, token: s.token, deviceId: deviceId(), id }, info, o)
+    if (plan) return plan
+    const source = info.MediaSources?.[0]
+    if (!source || !info.PlaySessionId) throw new Error('The server has nothing to play for this title.')
+    const prep = { playSessionId: info.PlaySessionId, source }
+    return { playSessionId: prep.playSessionId, source, url: raw.hlsUrl(id, prep, { audio: o.audio, burnSubtitle: o.subtitle, bitrate: o.bitrate }), kind: 'hls', method: 'Transcode', asked: o }
+  }
+  return { ...raw, playback }
 }
 
 export type Api = ReturnType<typeof build> & {

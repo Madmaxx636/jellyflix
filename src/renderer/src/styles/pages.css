@@ -161,3 +161,19 @@ select:focus { outline: 2px solid var(--accent); }
   .settings-sidebar .set-layout { grid-template-columns: 1fr; }
   .settings-sidebar .set-nav { flex-direction: row; flex-wrap: wrap; position: static; }
 }
+
+/* ===== narrow windows ===== */
+@media (max-width: 700px) {
+  .page { padding-inline: 14px; }
+  .set-row { flex-wrap: wrap; gap: 8px 16px; }
+  .set-control { flex: 1 1 auto; min-width: 0; flex-wrap: wrap; }
+  .set-control select { max-width: 100%; }
+  .set-value { max-width: 100%; text-align: left; }
+  .browse-head { align-items: flex-start; }
+  .hero-body { padding-inline: 14px; }
+  .facts { grid-template-columns: 1fr; gap: 2px 0; }
+  .facts dd { margin-bottom: 10px; }
+}
+
+.set-trusted { display: grid; gap: 8px; justify-items: end; }
+.set-trusted .btn { margin-left: 10px; }

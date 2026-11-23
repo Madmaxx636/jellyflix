@@ -1,6 +1,6 @@
 {
   "name": "jellyflix",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A Jellyfin desktop client that looks and works like Netflix, Hulu, HBO or Disney+",
   "private": true,
   "license": "MIT",
@@ -24,6 +24,8 @@
     "test:e2e:signin": "node tests/e2e/signin.mjs",
     "pretest:e2e:updates": "npm run build",
     "test:e2e:updates": "node tests/e2e/updates.mjs",
+    "pretest:e2e:https": "npm run build",
+    "test:e2e:https": "node tests/e2e/https.mjs",
     "dist": "npm run build && electron-builder",
     "prebuild": "node -e \"fs.rmSync('out',{recursive:true,force:true})\""
   },

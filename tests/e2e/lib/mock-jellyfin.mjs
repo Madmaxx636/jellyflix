@@ -2,6 +2,7 @@
 // Sends NO CORS headers unless MOCK_CORS=1, so the app's own CORS handling is what gets exercised.
 // Favourites and watched flags are kept in memory, so toggling them in the app can be checked here.
 import http from 'node:http'
+import https from 'node:https'
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -121,12 +122,15 @@ const STREAMS = [
   { Index: 5, Type: 'Subtitle', Codec: 'pgssub', Language: 'eng', DisplayTitle: 'English - PGSSUB', IsTextSubtitleStream: false }
 ]
 /** Single-item responses carry the extra detail that list responses leave out. */
+// Seek-bar previews, as a server that has made them describes them: 13 thumbnails, one a second, in one 5 by 5 tile.
+const TRICKPLAY = { ms1: { 160: { Width: 160, Height: 90, TileWidth: 5, TileHeight: 5, ThumbnailCount: 13, Interval: 1000, Bandwidth: 1000 } } }
+const tileSvg = () => `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450">${Array.from({ length: 25 }, (_, k) => `<rect x="${(k % 5) * 160}" y="${Math.floor(k / 5) * 90}" width="160" height="90" fill="hsl(${k * 14} 60% 40%)"/><text x="${(k % 5) * 160 + 80}" y="${Math.floor(k / 5) * 90 + 55}" font-size="40" fill="#fff" text-anchor="middle">${k}s</text>`).join('')}</svg>`
 const detail = it => {
   const base = V(it)
   if (it.Type === 'Movie' || it.Type === 'Series') {
-    return { ...base, People: castFor(it.ord), Studios: [{ Name: 'Mock Pictures' }], MediaSources: [{ Id: 'ms1', RunTimeTicks: 12 * SEC, MediaStreams: STREAMS }] }
+    return { ...base, People: castFor(it.ord), Studios: [{ Name: 'Mock Pictures' }], MediaSources: [{ Id: 'ms1', RunTimeTicks: 12 * SEC, MediaStreams: STREAMS }], Trickplay: TRICKPLAY }
   }
-  if (it.Type === 'Episode') return { ...base, MediaSources: [{ Id: 'ms1', RunTimeTicks: 12 * SEC, MediaStreams: STREAMS }] }
+  if (it.Type === 'Episode') return { ...base, MediaSources: [{ Id: 'ms1', RunTimeTicks: 12 * SEC, MediaStreams: STREAMS }], Trickplay: TRICKPLAY }
   return base
 }
 
@@ -227,7 +231,7 @@ const tokenOf = (req, q) => authInfo(req).Token || (MODE === 'modern' ? undefine
 const readBody = req => new Promise(r => { let b = ''; req.on('data', c => (b += c)); req.on('end', () => r(b)) })
 const VTT = 'WEBVTT\n\n00:00:00.500 --> 00:00:03.000\nHello from the mock subtitles\n\n00:00:03.500 --> 00:00:06.000\nSecond line of subtitles\n'
 
-const server = http.createServer(async (req, res) => {
+const handler = async (req, res) => {
   const u = new URL(req.url, 'http://x'), p = u.pathname, q = u.searchParams
   res.on('finish', () => console.log(`[${PORT}] ${req.method} ${p}${u.search.slice(0, 400)} -> ${res.statusCode}`))
   if (SELF_CORS) {
@@ -260,7 +264,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'max-age=60' })
     return res.end(art(it, m[2]))
   }
-  if ((m = p.match(/^\/Videos\/[^/]+\/(seg\d+\.ts)$/)) && MEDIA) { // real Jellyfin puts the token in segment URLs; the mock does not care
+  if ((m = p.match(/^\/Videos\/[^/]+\/(seg\d+\.ts)$/i)) && MEDIA) { // real Jellyfin puts the token in segment URLs; the mock does not care
     const f = path.join(MEDIA, m[1])
     if (!fs.existsSync(f)) { res.writeHead(404); return res.end() }
     res.writeHead(200, { 'Content-Type': 'video/mp2t' })
@@ -270,6 +274,17 @@ const server = http.createServer(async (req, res) => {
   // everything below needs the token the app got at login
   if (tokenOf(req, q) !== TOKEN) return json(res, { error: 'unauthorized' }, 401)
   for (const [frag, status] of failing) if (p.includes(frag)) return json(res, { error: 'failure made up by the test' }, status)
+  if (/^\/Videos\/[^/]+\/Trickplay\/\d+\/\d+\.jpg$/i.test(p)) { res.writeHead(200, { 'Content-Type': 'image/svg+xml' }); return res.end(tileSvg()) }
+  if (/^\/Videos\/[^/]+\/stream$/i.test(p) && MEDIA) { // the file as it is, with byte ranges so the player can seek in it
+    const f = path.join(MEDIA, 'clip.mp4')
+    if (MODE === 'brokendirect' || !fs.existsSync(f)) { res.writeHead(200, { 'Content-Type': 'video/mp4' }); return res.end('this is not a video') }
+    const size = fs.statSync(f).size
+    const range = /bytes=(\d*)-(\d*)/.exec(req.headers.range ?? '')
+    const start = range && range[1] ? Number(range[1]) : 0
+    const end = range && range[2] ? Number(range[2]) : size - 1
+    res.writeHead(range ? 206 : 200, { 'Content-Type': 'video/mp4', 'Accept-Ranges': 'bytes', 'Content-Length': end - start + 1, ...(range ? { 'Content-Range': `bytes ${start}-${end}/${size}` } : {}) })
+    return fs.createReadStream(f, { start, end }).pipe(res)
+  }
   if (/\/master\.m3u8$/.test(p)) {
     const f = path.join(MEDIA, 'index.m3u8')
     return MEDIA && fs.existsSync(f) ? text(res, 200, fs.readFileSync(f), 'application/vnd.apple.mpegurl') : text(res, 404, 'the mock has no media')
@@ -324,7 +339,18 @@ const server = http.createServer(async (req, res) => {
     const items = [{ Type: 'Intro', StartTicks: 1 * SEC, EndTicks: 4 * SEC }, { Type: 'Outro', StartTicks: 9 * SEC, EndTicks: 12 * SEC }]
     return json(res, { Items: items.map(x => ({ ...x, ItemId: m[1] })), TotalRecordCount: 2 })
   }
-  if ((m = p.match(/^\/Items\/([^/]+)\/PlaybackInfo$/)) && req.method === 'POST') return json(res, { PlaySessionId: 'ps1', MediaSources: [{ Id: 'ms1', RunTimeTicks: 12 * SEC, MediaStreams: STREAMS, DefaultAudioStreamIndex: 1 }] })
+  if ((m = p.match(/^\/Items\/([^/]+)\/PlaybackInfo$/)) && req.method === 'POST') {
+    // Like a real server: told what the player can decode, it answers with the file to play as it is or a stream address.
+    const b = JSON.parse((await readBody(req)) || '{}')
+    const source = { Id: 'ms1', ETag: 'etag1', Container: 'mp4', RunTimeTicks: 12 * SEC, MediaStreams: STREAMS, DefaultAudioStreamIndex: 1 }
+    if ((MODE === 'directplay' || MODE === 'brokendirect') && b.EnableDirectPlay !== false) return json(res, { PlaySessionId: 'ps1', MediaSources: [{ ...source, SupportsDirectPlay: true, SupportsDirectStream: true, SupportsTranscoding: true }] })
+    if (MODE === 'legacy' || MODE === 'oldroutes') return json(res, { PlaySessionId: 'ps1', MediaSources: [source] }) // older servers give no stream address
+    const tq = new URLSearchParams({ MediaSourceId: 'ms1', PlaySessionId: 'ps1', VideoCodec: 'h264', AudioCodec: 'aac', SegmentContainer: 'ts' })
+    if (b.AudioStreamIndex != null) tq.set('AudioStreamIndex', String(b.AudioStreamIndex))
+    if (b.SubtitleStreamIndex != null) { tq.set('SubtitleStreamIndex', String(b.SubtitleStreamIndex)); tq.set('SubtitleMethod', 'Encode') }
+    if (b.MaxStreamingBitrate) tq.set('VideoBitRate', String(b.MaxStreamingBitrate - 192000))
+    return json(res, { PlaySessionId: 'ps1', MediaSources: [{ ...source, SupportsDirectPlay: false, SupportsDirectStream: true, SupportsTranscoding: true, TranscodingUrl: `/videos/${m[1]}/master.m3u8?${tq}`, TranscodingSubProtocol: 'hls', TranscodingContainer: 'ts' }] })
+  }
   if ((m = p.match(/^\/UserFavoriteItems\/([^/]+)$/)) && newStyle) return setFlag(m[1], 'IsFavorite', req.method === 'POST')
   if ((m = p.match(/^\/Users\/u1\/FavoriteItems\/([^/]+)$/)) && oldStyle) return setFlag(m[1], 'IsFavorite', req.method === 'POST')
   if ((m = p.match(/^\/UserPlayedItems\/([^/]+)$/)) && newStyle) return setFlag(m[1], 'Played', req.method === 'POST')
@@ -336,5 +362,7 @@ const server = http.createServer(async (req, res) => {
   if (p.startsWith('/Sessions/Playing')) { res.writeHead(204); return res.end() }
 
   res.writeHead(404); res.end()
-})
+}
+// With MOCK_TLS_KEY and MOCK_TLS_CERT (file paths) it speaks HTTPS, for the self-signed certificate check.
+const server = process.env.MOCK_TLS_KEY ? https.createServer({ key: fs.readFileSync(process.env.MOCK_TLS_KEY), cert: fs.readFileSync(process.env.MOCK_TLS_CERT) }, handler) : http.createServer(handler)
 server.listen(PORT, '127.0.0.1', () => console.log(`mock jellyfin on ${PORT}`))

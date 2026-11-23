@@ -1,16 +1,18 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
-import type { Segment } from '../../api/jellyfin'
+import type { Segment, Trickplay } from '../../api/jellyfin'
 import { clock } from '../../util/time'
 
 const ARROW_STEP = 5
 const PAGE_STEP = 60
 
 /** The seek bar: click or drag to jump, or focus it and use the arrow keys (5 s), Page Up / Page Down (1 min), Home and End. */
-export default function Scrubber({ time, duration, buffered, segments, onSeek }: {
+export default function Scrubber({ time, duration, buffered, segments, preview, onSeek }: {
   time: number
   duration: number
   buffered: number
   segments: Segment[]
+  /** Preview pictures to show above the pointer, when the library has them. */
+  preview?: { info: Trickplay; tile: (index: number) => string }
   onSeek: (seconds: number) => void
 }) {
   const track = useRef<HTMLDivElement>(null)
@@ -46,7 +48,26 @@ export default function Scrubber({ time, duration, buffered, segments, onSeek }:
       <div className="pos" style={{ width: pct(time) }} />
       {segments.filter(s => s.type === 'Intro' || s.type === 'Outro').map(s => <i key={`${s.type}${s.start}`} className="mark" style={{ left: pct(s.start), width: pct(s.end - s.start) }} />)}
       <div className="knob" style={{ left: pct(time) }} />
-      {hover != null && <div className="tip" style={{ left: pct(hover) }}>{clock(hover)}</div>}
+      {hover != null && (
+        <div className={`tip ${preview ? 'with-thumb' : ''}`} style={preview ? { ['--tip-left' as string]: pct(hover), ['--thumb-w' as string]: `${preview.info.Width}px` } : { left: pct(hover) }}>
+          {preview && <Thumb info={preview.info} tile={preview.tile} seconds={hover} />}
+          <span>{clock(hover)}</span>
+        </div>
+      )}
     </div>
+  )
+}
+
+/** The preview for one moment: a thumbnail cut out of a tile of thumbnails. */
+function Thumb({ info, tile, seconds }: { info: Trickplay; tile: (index: number) => string; seconds: number }) {
+  const index = Math.max(0, Math.min(info.ThumbnailCount - 1, Math.floor((seconds * 1000) / info.Interval)))
+  const perTile = info.TileWidth * info.TileHeight
+  const within = index % perTile
+  return (
+    <div className="pc-thumb" style={{
+      width: info.Width, height: info.Height, backgroundImage: `url(${tile(Math.floor(index / perTile))})`,
+      backgroundSize: `${info.Width * info.TileWidth}px ${info.Height * info.TileHeight}px`,
+      backgroundPosition: `-${(within % info.TileWidth) * info.Width}px -${Math.floor(within / info.TileWidth) * info.Height}px`
+    }} />
   )
 }

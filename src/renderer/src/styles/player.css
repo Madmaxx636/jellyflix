@@ -41,6 +41,9 @@
 .pc-scrub .knob { position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--pc-fill); transform: scale(0); transition: transform .15s; }
 .pc-scrub:hover .knob, .pc-scrub:focus-visible .knob { transform: scale(1); }
 .pc-scrub:hover::before, .pc-scrub:hover .buf, .pc-scrub:hover .pos, .pc-scrub:hover .mark { top: calc(50% - var(--pc-track)); height: calc(var(--pc-track) * 2); }
+.pc-scrub .tip.with-thumb { display: grid; justify-items: center; gap: 4px; padding: 0; background: none; bottom: 30px; left: clamp(calc(var(--thumb-w) / 2), var(--tip-left, 50%), calc(100% - var(--thumb-w) / 2)); }
+.pc-scrub .tip.with-thumb span { padding: 2px 8px; border-radius: 4px; background: rgba(0, 0, 0, .88); }
+.pc-thumb { border: 2px solid #fff; border-radius: 4px; background-color: #111; box-sizing: content-box; }
 .pc-scrub .tip { position: absolute; bottom: 26px; transform: translateX(-50%); background: rgba(0, 0, 0, .88); padding: 3px 8px; border-radius: 4px; font-size: 12px; pointer-events: none; }
 
 /* the volume slider opens when the speaker is hovered or focused */
@@ -54,7 +57,9 @@
 .pc-err p { margin: 0; max-width: 640px; }
 .pc-err .btn { pointer-events: auto; color: #fff; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.pc-spinner { position: absolute; top: 50%; left: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border: 4px solid rgba(255, 255, 255, .25); border-top-color: #fff; border-radius: 50%; animation: spin .9s linear infinite; pointer-events: none; }
+.pc-buffering { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 14px; pointer-events: none; }
+.pc-buffering p { margin: 0; padding: 6px 14px; border-radius: 4px; background: rgba(0, 0, 0, .6); font-size: .95rem; }
+.pc-spinner { width: 54px; height: 54px; border: 4px solid rgba(255, 255, 255, .25); border-top-color: #fff; border-radius: 50%; animation: spin .9s linear infinite; pointer-events: none; }
 .pc-end { position: absolute; inset: 0; display: flex; gap: 14px; align-items: center; justify-content: center; background: rgba(0, 0, 0, .6); }
 
 /* Netflix shows what you are watching once the video has been paused for a moment */
@@ -170,3 +175,29 @@
 .player[data-look="disney"] .pc-menu button.on { color: var(--accent); }
 .player[data-look="disney"] .pc-eps-list button { border-radius: 0; }
 .player[data-look="disney"] .pc-next { border-radius: 10px; background: rgba(14, 19, 48, .97); }
+
+/* ===== narrow windows (half a screen, a phone-sized window): the same controls, smaller and closer ===== */
+.pc-next { max-width: calc(100vw - 2 * var(--pc-pad)); }
+@media (max-width: 760px) {
+  .player[data-look] { --pc-icon: 26px; --pc-pad: 12px; }
+  .player[data-look] .pc-top .pc-btn .icon, .player[data-look] .pc-cluster .pc-btn .icon { width: 28px; height: 28px; }
+  .player[data-look] .pc-cluster .pc-btn.play .icon { width: 36px; height: 36px; }
+  .player[data-look] .pc-btn { padding: 4px; }
+  .player[data-look] .pc-left, .player[data-look] .pc-right { gap: 0; }
+  .player[data-look] .pc-cluster { gap: 8px; }
+  .player[data-look] .pc-row[data-middle="cluster"] { grid-template-columns: auto 1fr auto; }
+  .player[data-look] .pc-bar { padding-top: 40px; }
+  .player[data-look] .pc-clock { font-size: 13px; min-width: 2.8em; }
+  .player[data-look] .pc-mid { font-size: 1rem; }
+  .player[data-look] .pc-heading .pc-title { font-size: 1.05rem; }
+  .player[data-look] .pc-heading .pc-sub { font-size: .8rem; }
+  .player[data-look] .pc-skip { padding: 8px 16px; font-size: .95rem; }
+  .pc-menu { max-width: calc(100vw - 24px); }
+  .pc-menu.tracks { flex-direction: column; gap: 10px; }
+  .pc-menu .col { min-width: 0; }
+  .pc-ep-pic { width: 96px; }
+}
+@media (max-width: 480px) {
+  .player[data-look] .pc-mid { display: none; }
+  .player[data-look] .pc-paused { padding-inline: 8%; }
+}

@@ -4,7 +4,8 @@ export interface Rect { x: number; y: number; width: number; height: number }
 export interface SavedWindow { width: number; height: number; x?: number; y?: number; maximized: boolean }
 
 export const DEFAULT_WINDOW: SavedWindow = { width: 1400, height: 860, maximized: false }
-export const MIN_WINDOW = { width: 900, height: 600 }
+// Small enough that the window can sit in half a screen, or a quarter, on a small or highly scaled display.
+export const MIN_WINDOW = { width: 420, height: 360 }
 
 /** How much of a window must be on a screen for it to count as reachable (enough to grab its title bar and drag it). */
 const MIN_VISIBLE = 120

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import type { Api, Item, Prepared, Segment } from '../api/jellyfin'
+import type { Api, Item, Playback, PlaybackOptions, Segment } from '../api/jellyfin'
 import { useLoad } from '../hooks/useLoad'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { useSettings } from '../settings'
@@ -11,7 +11,7 @@ import Chrome from '../components/player/Chrome'
 import { QUALITIES, SKIPPABLE, trackLabel, type Menu, type OpenMenu } from '../components/player/constants'
 import NextEpisodeCard from '../components/player/NextEpisodeCard'
 import PlayerMenus from '../components/player/PlayerMenus'
-import { useHlsStream } from '../components/player/useHlsStream'
+import { useStream } from '../components/player/useStream'
 import { useMediaSession } from '../components/player/useMediaSession'
 import { usePlaybackReport } from '../components/player/usePlaybackReport'
 import { useVideoControls } from '../components/player/useVideoControls'
@@ -21,6 +21,7 @@ const NO_EPISODES: Item[] = []
 const VOLUME_KEY = 'jellyflix.volume'
 const IDLE_AFTER_MS = 3000
 const PAUSE_PANEL_AFTER_MS = 3000
+const SLOW_AFTER_MS = 6000
 const SKIP_SECONDS = 10
 const DOUBLE_TAP_MS = 300
 
@@ -39,13 +40,13 @@ export default function Player({ api }: { api: Api }) {
   const { id = '' } = useParams()
   const frame = useRef<HTMLElement>(null)
   const loaded = useLoad(api, id, async a => {
-    const [item, prep] = await Promise.all([a.item(id), a.prepare(id)])
-    return { item, prep }
+    const [item, plan] = await Promise.all([a.item(id), a.playback(id)])
+    return { item, plan }
   })
   return (
     <main ref={frame} className="player-frame">
       {loaded.data
-        ? <Playing key={id} api={api} id={id} frame={frame} item={loaded.data.item} prep={loaded.data.prep} onRetry={loaded.reload} />
+        ? <Playing key={id} api={api} id={id} frame={frame} item={loaded.data.item} first={loaded.data.plan} onRetry={loaded.reload} />
         : <Waiting error={loaded.error} onRetry={loaded.reload} />}
     </main>
   )
@@ -72,12 +73,12 @@ function Waiting({ error, onRetry }: { error?: Error; onRetry: () => void }) {
   )
 }
 
-function Playing({ api, id, frame, item, prep, onRetry }: {
+function Playing({ api, id, frame, item, first, onRetry }: {
   api: Api
   id: string
   frame: RefObject<HTMLElement | null>
   item: Item
-  prep: Prepared
+  first: Playback
   onRetry: () => void
 }) {
   const nav = useNavigate()
@@ -99,11 +100,11 @@ function Playing({ api, id, frame, item, prep, onRetry }: {
     return asked != null ? Number(asked) || 0 : resume > 5 ? resume : 0
   })
   const position = useRef(initialTime) // the last known position: what is reported to the server
-  const streams = prep.source.MediaStreams ?? []
+  const streams = first.source.MediaStreams ?? []
   const audioStreams = streams.filter(s => s.Type === 'Audio')
   const subStreams = streams.filter(s => s.Type === 'Subtitle')
 
-  const [startAudio] = useState(() => pickAudio(streams, settings.audioLang, prep.source.DefaultAudioStreamIndex))
+  const [startAudio] = useState(() => pickAudio(streams, settings.audioLang, first.source.DefaultAudioStreamIndex))
   const [audio, setAudio] = useState(startAudio)
   const [sub, setSub] = useState(() => pickSubtitle(streams, settings.subtitleMode, settings.subtitleLang, streams.find(s => s.Index === startAudio)?.Language))
   const [quality, setQuality] = useState<string>(settings.quality)
@@ -123,6 +124,10 @@ function Playing({ api, id, frame, item, prep, onRetry }: {
   const [nextDismissed, setNextDismissed] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
   const [failure, setFailure] = useState('')
+  const [plan, setPlan] = useState(first) // how it is being played now: a new one when the audio, a burned-in subtitle or the quality changes
+  const [direct, setDirect] = useState(true) // false once playing the file as it is has failed
+  const [slow, setSlow] = useState(false) // waiting for a while for more video
+  const slowTimer = useRef(0)
   const [flash, setFlash] = useState<{ id: number; label: string; side: 'left' | 'right' } | null>(null)
   const tap = useRef({ at: 0, timer: 0, lastTouch: 0, count: 0 })
 
@@ -134,10 +139,28 @@ function Playing({ api, id, frame, item, prep, onRetry }: {
   // Picture-based subtitles (PGS, VobSub) can't be shown by the video element, so the server burns them in.
   const burn = subStream && !subStream.IsTextSubtitleStream ? subStream.Index : null
   const bitrate = QUALITIES.find(q => q.id === quality)?.bps ?? 0
-  const src = api.hlsUrl(id, prep, { audio: audio ?? undefined, burnSubtitle: burn ?? undefined, bitrate })
-  useHlsStream({ video, src, initialTime, speed, onFatal: setFailure })
-  usePlaybackReport(api, id, prep, video, position)
+  const wanted: PlaybackOptions = { audio: audio ?? undefined, subtitle: burn ?? undefined, bitrate: bitrate || undefined, direct }
+  const defaultAudio = first.source.DefaultAudioStreamIndex
+  useEffect(() => {
+    const had = plan.asked
+    if ((wanted.audio ?? defaultAudio) === (had.audio ?? defaultAudio) && wanted.subtitle === had.subtitle && wanted.bitrate === had.bitrate && wanted.direct === (had.direct !== false)) return
+    const ctl = new AbortController()
+    api.with(ctl.signal).playback(id, wanted).then(setPlan, e => { if (!ctl.signal.aborted) setFailure((e as Error).message) })
+    return () => ctl.abort()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `wanted` is made from the four values listed
+  }, [api, id, audio, burn, bitrate, direct, plan.asked, defaultAudio])
+  useStream({
+    video, url: plan.url, kind: plan.kind, initialTime, speed, onFatal: setFailure,
+    onFileFailed: () => { if (direct) setDirect(false); else setFailure("This video couldn't be played.") }
+  })
+  usePlaybackReport(api, id, plan, video, position)
 
+  const preview = useMemo(() => {
+    const sets = Object.entries(item.Trickplay?.[plan.source.Id] ?? {})
+    if (!sets.length) return undefined
+    const [width, info] = sets.reduce((best, cur) => (Math.abs(Number(cur[0]) - 320) < Math.abs(Number(best[0]) - 320) ? cur : best))
+    return { info, tile: (index: number) => api.trickplayUrl(id, plan.source.Id, Number(width), index) }
+  }, [item.Trickplay, plan.source.Id, api, id])
   const heading = item.Type === 'Episode'
     ? { name: item.SeriesName ?? item.Name, detail: say.episodeLine(item.ParentIndexNumber, item.IndexNumber, item.Name) }
     : { name: item.Name, detail: '' }
@@ -172,13 +195,16 @@ function Playing({ api, id, frame, item, prep, onRetry }: {
         pauseTimer.current = window.setTimeout(() => setPausedAWhile(true), PAUSE_PANEL_AFTER_MS)
       }],
       ['ended', () => { setEnded(true); setPlaying(false) }],
-      ['waiting', () => setWaiting(true)], ['playing', () => setWaiting(false)], ['canplay', () => setWaiting(false)], ['seeked', () => setWaiting(false)],
-      ['error', () => setFailure("This video couldn't be played.")]
+      ['waiting', () => { setWaiting(true); clearTimeout(slowTimer.current); slowTimer.current = window.setTimeout(() => setSlow(true), SLOW_AFTER_MS) }],
+      ['playing', () => { setWaiting(false); setSlow(false); clearTimeout(slowTimer.current) }],
+      ['canplay', () => { setWaiting(false); setSlow(false); clearTimeout(slowTimer.current) }],
+      ['seeked', () => { setWaiting(false); setSlow(false); clearTimeout(slowTimer.current) }]
     ]
     handlers.forEach(([name, handler]) => el.addEventListener(name, handler))
     return () => {
       handlers.forEach(([name, handler]) => el.removeEventListener(name, handler))
       clearTimeout(pauseTimer.current)
+      clearTimeout(slowTimer.current)
     }
   }, [video])
   useEffect(() => {
@@ -193,7 +219,7 @@ function Playing({ api, id, frame, item, prep, onRetry }: {
   }, [volume, muted, video])
 
   // ---- helpers ----
-  const total = duration || (prep.source.RunTimeTicks ?? 0) / 1e7
+  const total = duration || (plan.source.RunTimeTicks ?? 0) / 1e7
   const { seek, bump, toggle } = useVideoControls(video)
   const toggleFullscreen = () => { if (document.fullscreenElement) void document.exitFullscreen(); else void frame.current?.requestFullscreen() }
   const armIdle = useCallback(() => {
@@ -309,7 +335,7 @@ function Playing({ api, id, frame, item, prep, onRetry }: {
         onClick={e => { if ((e.nativeEvent as PointerEvent).pointerType === 'touch') return; if (menu) closeMenu(); else toggle() }}
         onDoubleClick={() => { if (performance.now() - tap.current.lastTouch > 600) toggleFullscreen() }}>
         {subStream?.IsTextSubtitleStream && (
-          <track key={sub} kind="subtitles" default src={api.subtitleUrl(id, prep.source.Id, subStream.Index)} srcLang={subStream.Language ?? ''} label={trackLabel(subStream)} />
+          <track key={sub} kind="subtitles" default src={api.subtitleUrl(id, plan.source.Id, subStream.Index)} srcLang={subStream.Language ?? ''} label={trackLabel(subStream)} />
         )}
       </video>
 
@@ -322,7 +348,7 @@ function Playing({ api, id, frame, item, prep, onRetry }: {
         </div>
       )}
 
-      <Chrome layout={layout} say={say} episodesLabel={words.episodes} heading={heading} segments={segments}
+      <Chrome layout={layout} say={say} episodesLabel={words.episodes} heading={heading} segments={segments} preview={preview}
         state={{ playing, muted, volume, time, duration: total, buffered, fullscreen, menu }}
         available={{ next: !!nextEp, episodes: episodes.length > 0, tracks: audioStreams.length > 0 || subStreams.length > 0 }}
         on={{
@@ -331,7 +357,12 @@ function Playing({ api, id, frame, item, prep, onRetry }: {
         }} />
 
       {flash && <div key={flash.id} className={`pc-flash ${flash.side}`} aria-hidden="true">{flash.label}</div>}
-      {waiting && !failure && <div className="pc-spinner" role="status" aria-label="Buffering" />}
+      {waiting && !failure && (
+        <div className="pc-buffering" role="status">
+          <div className="pc-spinner" aria-label="Buffering" />
+          {slow && <p>{plan.method === 'DirectPlay' ? 'Waiting for the server…' : 'Waiting for the server to convert the video…'}</p>}
+        </div>
+      )}
       {failure && (
         <div className="pc-err" role="alert">
           <p>{failure}</p>

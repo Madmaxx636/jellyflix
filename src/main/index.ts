@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { DEFAULT_WINDOW, MIN_WINDOW } from './geometry'
 import { addEditingContextMenu, allowServerResponses, guardNavigation, restrictPermissions } from './security'
+import { handleCertificates } from './certificates'
 import { startUpdates } from './updater'
 import { restoreWindowState, trackWindowState } from './windowState'
 
@@ -91,6 +92,7 @@ if (!HIDDEN && !app.requestSingleInstanceLock()) {
     allowServerResponses(session.defaultSession)
     createWindow()
     startUpdates(isAppUrl, HIDDEN)
+    handleCertificates(isAppUrl, () => BrowserWindow.getAllWindows()[0])
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
   })
 

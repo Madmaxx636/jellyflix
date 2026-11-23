@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.1 (2026-11-23)
+
+### Added
+- Direct play. The app tells Jellyfin what it can decode, so a file that fits (MP4, WebM or MKV with H.264, VP9 or AV1) is
+  played as it is instead of being converted, and anything else is converted by the server using the stream address the
+  server hands out, copying what it can. If a file turns out not to play, the app asks the server to convert it.
+- A message under the spinner when the server is slow to send more video.
+- Seek-bar previews: pointing at the bar shows a picture of that moment, when the library has Jellyfin's preview images.
+- Servers with a certificate they made themselves: the app shows the certificate once and asks whether to trust the server.
+  The choice is remembered for that certificate; Settings > About can forget it.
+
+### Fixed
+- In half a screen the player's controls were off the edge of the window: the window could not be smaller than 900 px, and
+  below about 640 px the controls did not fit. The window can now be 420 px wide, and the player, the top bar and Settings
+  rearrange themselves for narrow windows.
+- Buffering: the app always asked the server to convert every video and built the stream address itself, with no limit on how
+  much the server had to do. It now plays compatible files directly, uses the server's own stream address, waits longer for
+  a converting server to start, and keeps more video ahead.
+
 ## 0.2.0 (2026-11-23)
 
 ### Added

@@ -3,6 +3,10 @@
 /** What the preload script (src/preload/index.ts) adds to the page. It is missing when the page runs outside the app. */
 interface Window {
   jellyflix?: {
+    certificates: {
+      list: () => Promise<string[]>
+      forget: (host: string) => Promise<string[]>
+    }
     updates: {
       info: () => Promise<import('../../shared/updates').UpdateInfo>
       check: () => Promise<import('../../shared/updates').UpdateInfo>

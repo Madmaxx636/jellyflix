@@ -724,6 +724,8 @@ async function testPlayerRobust() {
   await send('Page.reload'); await waitFor(`document.querySelector('.player')`, 30000)
   await waitPlaying(1.0)
   await ev(`document.querySelector('.player video').pause()`)
+  await ev(`(() => { const r = document.querySelector('.pc-scrub').getBoundingClientRect(); document.querySelector('.pc-scrub').dispatchEvent(new PointerEvent('pointermove', { pointerType: 'mouse', clientX: r.left + r.width * 0.5, clientY: r.top + 5, bubbles: true })) })()`)
+  check('robust/player: pointing at the seek bar shows a preview picture for that moment', await ok(`(() => { const t = document.querySelector('.pc-thumb'); return !!t && t.style.backgroundImage.includes('/Trickplay/160/0.jpg') && t.style.backgroundPosition === '-160px -90px' })()`, 3000), (await ev(`document.querySelector('.pc-thumb')?.getAttribute('style') ?? ''`)) ?? '')
   const before = await video('v.currentTime')
   await ev(`document.querySelector('.pc-scrub').focus()`)
   await press('ArrowRight')
@@ -799,6 +801,33 @@ async function testTouch() {
 }
 
 // =====================================================================================
+/** A file the player can play as it is is played as it is; one it can't is handed to the server to convert. */
+async function testDirectPlay() {
+  if (!hasClip) return skip('player: direct play', 'ffmpeg is not installed')
+  await setLook('netflix')
+  await patchSettings({ subtitleMode: 'off', autoplayNext: false, skipIntro: 'off', audioLang: '', quality: 'auto', speed: 1 }, false)
+  for (const [port, works] of [[BASE + 4, true], [BASE + 5, false]]) {
+    const label = works ? 'a file the player can play' : 'a file it cannot play'
+    await signInTo(port); await reset(port)
+    const mark = logMark()
+    await ev(`location.hash = '#/play/s1e1x1'`)
+    check(`player: ${label} starts playing`, await ok(`document.querySelector('.player video') && document.querySelector('.player video').currentTime > 1.2`, 30000))
+    const since = logSince(mark)
+    check(`player: the file is asked for as it is first`, new RegExp(`\\[${port}\\] GET /Videos/s1e1x1/stream\\?static=true`).test(since))
+    if (works) {
+      check('player: and no converted stream is made', !new RegExp(`\\[${port}\\] GET [^ ]*master\\.m3u8`).test(since))
+      const before = await video('v.currentTime')
+      await key('ArrowRight'); await sleep(500)
+      check('player: seeking in it works', (await video('v.currentTime')) > before + 8, `${before?.toFixed(1)} -> ${(await video('v.currentTime'))?.toFixed(1)}`)
+    } else {
+      check('player: the server is asked to convert it instead', await pollLog(mark, new RegExp(`\\[${port}\\] GET [^ ]*master\\.m3u8\\?[^ ]*ApiKey=tok-demo`)))
+    }
+    await ev(`location.hash = '#/'`); await sleep(300)
+  }
+  await signInTo(BASE)
+}
+
+// =====================================================================================
 const AREAS = (process.env.AREAS ?? 'nav,browse,details,home,search,settings,collapse,profiles,player,robust,touch,compat').split(',')
 const LOOKS = (process.env.LOOKS ?? 'netflix,hulu,hbo,disney').split(',')
 const perLook = { nav: testNav, browse: testBrowse, details: testDetails, home: testHome, search: testSearch, settings: testSettings, collapse: testCollapse }
@@ -806,7 +835,7 @@ const perLook = { nav: testNav, browse: testBrowse, details: testDetails, home: 
 await start({
   tag: process.env.TAG ?? 'features',
   watchSeconds: Number(process.env.WATCH ?? 560),
-  mocks: [{ port: BASE, mode: 'normal' }, { port: BASE + 1, mode: 'modern' }, { port: BASE + 2, mode: 'oldroutes' }, { port: BASE + 3, mode: 'collapse' }]
+  mocks: [{ port: BASE, mode: 'normal' }, { port: BASE + 1, mode: 'modern' }, { port: BASE + 2, mode: 'oldroutes' }, { port: BASE + 3, mode: 'collapse' }, { port: BASE + 4, mode: 'directplay' }, { port: BASE + 5, mode: 'brokendirect' }]
 })
 let forced = 0
 try {
@@ -823,7 +852,7 @@ try {
         for (const look of LOOKS) {
           try { await testPlayerLook(look) } catch (e) { check(`${look}/player: ran to the end`, false, e.message.split('\n')[0]) }
         }
-        if (LOOKS.includes('netflix')) { await testPlayer(); await testPlayerRobust() } // the rest of the player checks run in the Netflix look
+        if (LOOKS.includes('netflix')) { await testPlayer(); await testPlayerRobust(); await testDirectPlay() } // the rest of the player checks run in the Netflix look
       } else if (area === 'robust') {
         await testRobust()
       } else if (area === 'touch') {

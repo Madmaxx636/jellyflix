@@ -82,7 +82,7 @@ export function explainSignInFailure(e: unknown, f: Found): string {
     if (e.status === 404) return `Jellyfin didn't find the sign-in address (404). If it lives under a sub-path such as example.com/jellyfin, include that in the address. (${where})`
     return `Sign-in failed (${e.status} ${e.statusText}).${said} (${where})`
   }
-  return `Couldn't find a Jellyfin server. Tried ${f.tried.join(', ')}. Check the address, that the server is running, and that this computer can reach it. HTTPS with a self-signed certificate isn't supported yet.`
+  return `Couldn't find a Jellyfin server. Tried ${f.tried.join(', ')}. Check the address, that the server is running, and that this computer can reach it. If the server uses a certificate it made itself, the app asks whether to trust it: choose Trust this server and try again.`
 }
 
 export async function login(serverInput: string, user: string, pw: string): Promise<Session> {

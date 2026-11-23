@@ -20,6 +20,13 @@ export interface MediaStream {
 
 export interface MediaSource {
   Id: string
+  ETag?: string
+  SupportsDirectPlay?: boolean
+  SupportsDirectStream?: boolean
+  SupportsTranscoding?: boolean
+  /** A server-made address for the converted stream, relative to the server. */
+  TranscodingUrl?: string
+  TranscodingSubProtocol?: string
   RunTimeTicks?: number
   Container?: string
   MediaStreams?: MediaStream[]
@@ -53,6 +60,8 @@ export interface Item {
   ParentBackdropItemId?: string
   ParentBackdropImageTags?: string[]
   BackdropImageTags?: string[]
+  /** Preview pictures for the seek bar, by media source and then by thumbnail width (Jellyfin 10.9 and later, when the library makes them). */
+  Trickplay?: Record<string, Record<string, Trickplay>>
   UserData?: { PlaybackPositionTicks?: number; PlayedPercentage?: number; Played?: boolean; IsFavorite?: boolean }
 }
 
@@ -83,3 +92,31 @@ export interface Query {
   personId?: string
 }
 export interface Page { items: Item[]; total: number }
+
+/** What the app asks the server for when it starts or changes a stream. */
+export interface PlaybackOptions {
+  audio?: number
+  /** A picture-based subtitle to burn into the picture (text subtitles are shown by the player). */
+  subtitle?: number
+  /** Highest bits per second, or none. */
+  bitrate?: number
+  /** False once playing the file as it is has failed. */
+  direct?: boolean
+}
+
+/** How one title will be played: the address to give the video element, and what the server is doing for it. */
+export interface Playback {
+  playSessionId: string
+  source: MediaSource
+  url: string
+  /** A file the video element plays itself, or an HLS stream. */
+  kind: 'file' | 'hls'
+  method: 'DirectPlay' | 'DirectStream' | 'Transcode'
+  /** What was asked for, so a later change can tell whether a new stream is needed. */
+  asked: PlaybackOptions
+}
+
+export interface PlaybackInfoResponse { MediaSources?: MediaSource[]; PlaySessionId?: string; ErrorCode?: string }
+
+/** One set of seek-bar previews: tiles of TileWidth by TileHeight thumbnails, one every Interval milliseconds. */
+export interface Trickplay { Width: number; Height: number; TileWidth: number; TileHeight: number; ThumbnailCount: number; Interval: number }
