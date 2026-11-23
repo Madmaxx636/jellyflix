@@ -109,6 +109,13 @@ Newer routes (`/UserViews`, `/UserItems/Resume`, `/Items/Latest`, `/Items/{id}`,
   can forget it.
 - Only video libraries are browsable (music, books and live TV are hidden).
 
+## Android and Google TV
+
+Every release also has an `.apk` for Android phones, tablets and Google TV (Android 7 or newer). It is one app: on a TV it
+shows up in the launcher row and works with the remote. Download it from the release, open it on the device, and allow the
+install when Android asks (it is not on Google Play). The app is signed with the project's key, so a newer `.apk` installs
+over an older one. The source is in `android/`.
+
 ## Updates
 
 The app asks GitHub for the newest release when it starts and every six hours, and tells you when there is one. The
