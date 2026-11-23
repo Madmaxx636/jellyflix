@@ -17,6 +17,23 @@ android {
         versionName = (project.findProperty("versionName") as String?) ?: "0.0.0-dev"
     }
 
+    // Release signing: the key comes from the environment (GitHub secrets in CI). Without it the release build is left unsigned.
+    val keystore = System.getenv("ANDROID_KEYSTORE_FILE")
+    signingConfigs {
+        if (keystore != null) create("release") {
+            storeFile = file(keystore)
+            storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+            keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+        }
+    }
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            if (keystore != null) signingConfig = signingConfigs.getByName("release")
+        }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
