@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.1 (2026-11-23)
+
+### Added
+- Android: servers with a certificate they made themselves. When a server's certificate is one the device doesn't know, sign-in
+  shows it (name, issuer, dates and SHA-256 fingerprint) and asks whether to trust it. The choice is remembered for that
+  exact certificate, covers and video use it too, and Settings has a button to forget the trusted certificates. If the
+  server's certificate changes, the app asks again.
+
 ## 0.3.0 (2026-11-23)
 
 ### Added
@@ -7,7 +15,7 @@
   My List, details with seasons and episodes, and playback with its own controls (seek bar, 10 s jumps, audio and
   subtitle choice, skip intro, remote control keys). It plays files directly when the device can and otherwise uses the
   stream the server makes. The four looks are available in Settings, and on a TV the navigation moves to the top and tiles
-  get bigger. Not there yet: servers with a self-made certificate, and update checks.
+  get bigger. Not there yet: update checks.
 
 ## 0.2.1 (2026-11-23)
 
