@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { APP_VERSION, type Api, type Session } from '../api/jellyfin'
 import { useLoad } from '../hooks/useLoad'
 import { usePageTitle } from '../hooks/usePageTitle'
+import { describeUpdate, useUpdates } from '../hooks/useUpdates'
 import { LANGUAGES, type Settings } from '../settingsModel'
 import { useSettings } from '../settings'
 import { THEMES, useTheme, type ThemeId } from '../theme'
@@ -27,6 +28,7 @@ export default function SettingsPage({ api, session, onLogout }: { api: Api; ses
   usePageTitle(w.settings)
   const { data: info } = useLoad(api, 'info', a => a.publicInfo())
   const [confirmReset, setConfirmReset] = useState(false)
+  const updates = useUpdates()
 
   // The second click has to come soon after the first, or the question lapses.
   useEffect(() => {
@@ -146,6 +148,19 @@ export default function SettingsPage({ api, session, onLogout }: { api: Api; ses
           <section id="set-about" className="set-section" data-section="about">
             <h2>About</h2>
             <SettingRow id="app" label="Jellyflix"><span className="set-value">Version {APP_VERSION}</span></SettingRow>
+            {updates.info && (
+              <>
+                <SettingRow id="updates" label="Updates">
+                  <span className="set-value">{describeUpdate(updates.info)}</span>
+                  {updates.info.state.kind !== 'off' && <button className="btn" data-act="check-updates" onClick={updates.check}>Check now</button>}
+                </SettingRow>
+                {updates.info.state.kind !== 'off' && (
+                  <SettingRow id="autoUpdate" label="Check for updates automatically" hint="Asks GitHub for the newest release when the app starts, and every few hours.">
+                    <Toggle label="Check for updates automatically" checked={updates.info.auto} onChange={updates.setAuto} />
+                  </SettingRow>
+                )}
+              </>
+            )}
             <SettingRow id="serverInfo" label="Server software">
               <span className="set-value">{info ? `${info.ServerName ?? 'Jellyfin'} · ${info.ProductName ?? 'Jellyfin Server'} ${info.Version ?? ''}` : 'Checking…'}</span>
             </SettingRow>

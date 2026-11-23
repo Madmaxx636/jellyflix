@@ -10,6 +10,7 @@ import { clearFlags } from './userdata'
 import ErrorBoundary from './components/ErrorBoundary'
 import NavBar from './components/NavBar'
 import ToastHost from './components/Toast'
+import UpdateBanner from './components/UpdateBanner'
 import Login from './pages/Login'
 import Home from './pages/Home'
 import Details from './pages/Details'
@@ -102,6 +103,7 @@ export default function App() {
             </HashRouter>
           )}
           <ToastHost />
+          <UpdateBanner />
         </ErrorBoundary>
       </SettingsProvider>
     </ThemeProvider>

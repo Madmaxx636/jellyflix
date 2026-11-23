@@ -1,6 +1,6 @@
 {
   "name": "jellyflix",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "A Jellyfin desktop client that looks and works like Netflix, Hulu, HBO or Disney+",
   "private": true,
   "license": "MIT",
@@ -22,6 +22,8 @@
     "test:e2e": "node tests/e2e/features.mjs",
     "pretest:e2e:signin": "npm run build",
     "test:e2e:signin": "node tests/e2e/signin.mjs",
+    "pretest:e2e:updates": "npm run build",
+    "test:e2e:updates": "node tests/e2e/updates.mjs",
     "dist": "npm run build && electron-builder",
     "prebuild": "node -e \"fs.rmSync('out',{recursive:true,force:true})\""
   },
@@ -73,7 +75,14 @@
     },
     "portable": {
       "artifactName": "${productName}-${version}-${os}-${arch}-portable.${ext}"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Madmaxx636",
+        "repo": "jellyflix"
+      }
+    ]
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
@@ -91,5 +100,8 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vitest": "^5.1.1"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
   }
 }

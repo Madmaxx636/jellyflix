@@ -7,6 +7,7 @@ const { version } = JSON.parse(readFileSync(resolve('package.json'), 'utf8')) as
 
 export default defineConfig({
   main: { build: { rollupOptions: { input: resolve('src/main/index.ts') } } },
+  preload: { build: { rollupOptions: { input: resolve('src/preload/index.ts') } } },
   renderer: {
     root: resolve('src/renderer'),
     // The player's chunk holds hls.js and is loaded only when something plays, so it may be larger than the default warning size.

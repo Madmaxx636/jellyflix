@@ -59,6 +59,11 @@ each look is modelled on.
   reason shown.
 - Everything can be reached from the keyboard (a "Skip to content" link, visible focus, Esc closes menus).
 - The window remembers its size and place, and starting the app twice brings the open window forward.
+- Touch screens: touching the screen switches to touch controls by itself (bigger buttons, cards that show their buttons
+  without hovering, swipeable rows and banner) and moving a mouse switches back. In the player a tap shows or hides the
+  controls and a double tap skips 10 seconds back or forward (or pauses, in the middle). Settings > Touch controls can
+  force it on or off.
+- Updates: see below.
 
 ## The four looks
 
@@ -96,9 +101,18 @@ Newer routes (`/UserViews`, `/UserItems/Resume`, `/Items/Latest`, `/Items/{id}`,
 - HTTPS with a self-signed certificate is not supported yet.
 - Only video libraries are browsable (music, books and live TV are hidden).
 
+## Updates
+
+The app asks GitHub for the newest release when it starts and every six hours, and tells you when there is one. The
+Windows installer and the Linux AppImage download it in the background and offer "Restart now"; the other installs (macOS,
+the portable exe, deb, rpm, pacman, tar.gz) show a "Download" button that opens the release page. macOS builds are not signed,
+which is why they can't replace themselves. Settings > About has "Check now" and a switch to turn the automatic check off.
+Nothing is sent to GitHub besides the request for the release.
+
 ## Security
 
-- The page runs in a sandbox with no Node access and no preload script. The only permission it can get is full screen.
+- The page runs in a sandbox with no Node access. Its only way to the main process is a small preload script that lets it
+  ask about updates. The only permission it can get is full screen.
 - It can't navigate away from the app; web addresses (such as trailers) open in the system browser, and only http and
   https ones are offered.
 - Pictures, video and API calls go to whichever server you sign in to, so the content policy can't pin them to one

@@ -54,6 +54,8 @@ jobs:
             dist/*.exe
             dist/*.dmg
             dist/*.zip
+            dist/latest*.yml
+            dist/*.blockmap
 
   release:
     needs: build
@@ -67,7 +69,8 @@ jobs:
           merge-multiple: true
       - name: Checksums and release notes
         run: |
-          (cd files && sha256sum * > SHA256SUMS.txt)
+          # the update files (latest*.yml, *.blockmap) are for the app, not for people
+          (cd files && sha256sum $(ls | grep -vE '\.(yml|blockmap)$') > SHA256SUMS.txt)
           version="${GITHUB_REF_NAME#v}"
           {
             echo 'Pick the file for your system: `.exe` (installer) or the portable `.exe` for Windows; `.dmg` or `.zip` for macOS (Intel `x64`, Apple silicon `arm64`); `.AppImage`, `.deb`, `.rpm`, `.pacman` or `.tar.gz` for Linux (`x64` or `arm64`).'

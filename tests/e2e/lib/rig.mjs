@@ -27,7 +27,7 @@ export let hasClip = false
 // ---------- start and stop ----------
 
 /** Starts the mock servers and the app, and connects to the app. `mocks` is [{ port, mode, to? }]. */
-export async function start({ tag, mocks, watchSeconds = 560 }) {
+export async function start({ tag, mocks, watchSeconds = 560, env = {} }) {
   fs.mkdirSync(OUT, { recursive: true })
   logPath = path.join(OUT, `${tag}.log`)
   const log = fs.openSync(logPath, 'w')
@@ -40,7 +40,7 @@ export async function start({ tag, mocks, watchSeconds = 560 }) {
   profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jellyflix-e2e-'))
   const electron = createRequire(import.meta.url)('electron') // the package exports the path of the binary
   app = spawn(electron, ['--no-sandbox', '--mute-audio', `--remote-debugging-port=${CDP_PORT}`, `--user-data-dir=${profile}`, ROOT], {
-    cwd: ROOT, env: { ...process.env, JELLYFLIX_HIDDEN: '1' }, stdio: ['ignore', log, log]
+    cwd: ROOT, env: { ...process.env, JELLYFLIX_HIDDEN: '1', XDG_CACHE_HOME: profile, ...env }, stdio: ['ignore', log, log]
   })
   setTimeout(async () => { console.error('WATCHDOG: the run took too long'); process.exit(await finish(2)) }, watchSeconds * 1000).unref()
   await connect(mocks)

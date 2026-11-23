@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.0 (2026-11-23)
+
+### Added
+- Touch screens. Touching the screen switches to touch controls by itself, and moving a mouse or trackpad switches back
+  (Settings > Touch controls can force it on or off). Touch controls have bigger buttons, cards that show their buttons
+  without hovering, swipeable rows, a swipeable banner, and in the player a tap that shows or hides the controls and a
+  double tap that skips 10 seconds back or forward (or pauses, in the middle of the picture).
+- Updates. The app looks for a newer release on GitHub when it starts and every six hours. The Windows installer and the
+  Linux AppImage download it in the background and offer a restart; other installs (macOS, which is not signed, the
+  portable exe, deb, rpm, pacman, tar.gz) offer a link to the download. Settings > About has "Check now" and a switch for
+  the automatic check.
+
+### Changed
+- Hidden test runs are silent as well as invisible.
+
 ## 0.1.3 (2026-11-22)
 
 ### Fixed

@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { DEFAULT_WINDOW, MIN_WINDOW } from './geometry'
 import { addEditingContextMenu, allowServerResponses, guardNavigation, restrictPermissions } from './security'
+import { startUpdates } from './updater'
 import { restoreWindowState, trackWindowState } from './windowState'
 
 // Test hook: with JELLYFLIX_HIDDEN=1 the app renders offscreen and never shows a window, so UI
@@ -54,6 +55,7 @@ function createWindow(): void {
     ...(existsSync(ICON) ? { icon: ICON } : {}),
     show: !HIDDEN,
     webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
@@ -88,6 +90,7 @@ if (!HIDDEN && !app.requestSingleInstanceLock()) {
     restrictPermissions(session.defaultSession)
     allowServerResponses(session.defaultSession)
     createWindow()
+    startUpdates(isAppUrl, HIDDEN)
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
   })
 
