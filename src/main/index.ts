@@ -10,6 +10,7 @@ import { restoreWindowState, trackWindowState } from './windowState'
 // tests can drive it over --remote-debugging-port without putting anything on the user's desktop.
 // (A merely hidden native window stops producing frames, so screenshots would hang.)
 const HIDDEN = process.env['JELLYFLIX_HIDDEN'] === '1'
+if (HIDDEN) app.commandLine.appendSwitch('mute-audio') // a hidden test run makes no sound either
 const DEV_URL = process.env['ELECTRON_RENDERER_URL']
 const INDEX_FILE = join(__dirname, '../renderer/index.html')
 const ICON = join(__dirname, '../../build/icon.png')

@@ -39,7 +39,7 @@ export async function start({ tag, mocks, watchSeconds = 560 }) {
   }))
   profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jellyflix-e2e-'))
   const electron = createRequire(import.meta.url)('electron') // the package exports the path of the binary
-  app = spawn(electron, ['--no-sandbox', `--remote-debugging-port=${CDP_PORT}`, `--user-data-dir=${profile}`, ROOT], {
+  app = spawn(electron, ['--no-sandbox', '--mute-audio', `--remote-debugging-port=${CDP_PORT}`, `--user-data-dir=${profile}`, ROOT], {
     cwd: ROOT, env: { ...process.env, JELLYFLIX_HIDDEN: '1' }, stdio: ['ignore', log, log]
   })
   setTimeout(async () => { console.error('WATCHDOG: the run took too long'); process.exit(await finish(2)) }, watchSeconds * 1000).unref()

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import type { Api, Item, Prepared, Segment } from '../api/jellyfin'
 import { useLoad } from '../hooks/useLoad'
@@ -22,6 +22,7 @@ const VOLUME_KEY = 'jellyflix.volume'
 const IDLE_AFTER_MS = 3000
 const PAUSE_PANEL_AFTER_MS = 3000
 const SKIP_SECONDS = 10
+const DOUBLE_TAP_MS = 300
 
 function storedVolume(): number {
   try {
@@ -122,6 +123,8 @@ function Playing({ api, id, frame, item, prep, onRetry }: {
   const [nextDismissed, setNextDismissed] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
   const [failure, setFailure] = useState('')
+  const [flash, setFlash] = useState<{ id: number; label: string; side: 'left' | 'right' } | null>(null)
+  const tap = useRef({ at: 0, timer: 0, lastTouch: 0, count: 0 })
 
   const segments = useLoad(api, `segments|${id}`, a => a.segments(id)).data ?? NO_SEGMENTS
   const episodes = useLoad(api, `episodes|${item.SeriesId ?? ''}`, a =>
@@ -266,11 +269,45 @@ function Playing({ api, id, frame, item, prep, onRetry }: {
 
   const choose = (apply: () => void) => { apply(); closeMenu() }
 
+  // Touch: one tap on the picture shows or hides the controls; two taps skip back (left third), forward (right third) or
+  // pause and play (middle).
+  const onPictureTap = (e: ReactPointerEvent<HTMLVideoElement>) => {
+    if (e.pointerType !== 'touch') return
+    const now = performance.now()
+    tap.current.lastTouch = now
+    const box = e.currentTarget.getBoundingClientRect()
+    const across = (e.clientX - box.left) / box.width
+    if (now - tap.current.at < DOUBLE_TAP_MS) {
+      clearTimeout(tap.current.timer)
+      tap.current.at = 0
+      const show = (by: number, side: 'left' | 'right') => {
+        bump(by)
+        setFlash({ id: ++tap.current.count, label: `${by > 0 ? '+' : '−'}${SKIP_SECONDS} s`, side })
+        window.setTimeout(() => setFlash(cur => (cur && cur.id === tap.current.count ? null : cur)), 700)
+      }
+      if (across < 1 / 3) show(-SKIP_SECONDS, 'left')
+      else if (across > 2 / 3) show(SKIP_SECONDS, 'right')
+      else toggle()
+      return
+    }
+    tap.current.at = now
+    tap.current.timer = window.setTimeout(() => {
+      tap.current.at = 0
+      if (menu) closeMenu()
+      else if (idle) wake()
+      else setIdle(true)
+    }, DOUBLE_TAP_MS)
+  }
+
   return (
     <div className={`player ${playing ? 'is-playing' : 'is-paused'} ${idle && playing && !menu ? 'idle' : ''} ${menu ? 'menu-open' : ''}`}
-      onMouseMove={wake} data-look={theme.id}>
+      data-look={theme.id}
+      onPointerMove={e => { if (e.pointerType !== 'touch') wake() }}
+      onPointerDown={e => { if (!(e.pointerType === 'touch' && e.target === video.current)) wake() }}>
       {/* oxlint-disable-next-line jsx-a11y/media-has-caption -- subtitle tracks are chosen from the player's own menu and added below */}
-      <video ref={video} crossOrigin="anonymous" playsInline aria-label={title} onClick={() => { if (menu) closeMenu(); else toggle() }} onDoubleClick={toggleFullscreen}>
+      <video ref={video} crossOrigin="anonymous" playsInline aria-label={title} onPointerUp={onPictureTap}
+        onClick={e => { if ((e.nativeEvent as PointerEvent).pointerType === 'touch') return; if (menu) closeMenu(); else toggle() }}
+        onDoubleClick={() => { if (performance.now() - tap.current.lastTouch > 600) toggleFullscreen() }}>
         {subStream?.IsTextSubtitleStream && (
           <track key={sub} kind="subtitles" default src={api.subtitleUrl(id, prep.source.Id, subStream.Index)} srcLang={subStream.Language ?? ''} label={trackLabel(subStream)} />
         )}
@@ -293,6 +330,7 @@ function Playing({ api, id, frame, item, prep, onRetry }: {
           mute: () => setMuted(m => !m), setVolume: v => { setVolume(v); setMuted(false) }
         }} />
 
+      {flash && <div key={flash.id} className={`pc-flash ${flash.side}`} aria-hidden="true">{flash.label}</div>}
       {waiting && !failure && <div className="pc-spinner" role="status" aria-label="Buffering" />}
       {failure && (
         <div className="pc-err" role="alert">

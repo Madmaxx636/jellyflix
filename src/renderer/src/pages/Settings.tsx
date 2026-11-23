@@ -85,6 +85,10 @@ export default function SettingsPage({ api, session, onLogout }: { api: Api; ses
               <Select<Settings['cardSize']> label="Poster size" value={st.cardSize} onChange={v => set({ cardSize: v })}
                 options={[{ value: 'small', label: 'Small' }, { value: 'medium', label: 'Medium' }, { value: 'large', label: 'Large' }]} />
             </SettingRow>
+            <SettingRow id="touchMode" label="Touch controls" hint="Bigger buttons, and tap and swipe gestures. Auto switches when you touch the screen, and back when you use a mouse.">
+              <Select<Settings['touchMode']> label="Touch controls" value={st.touchMode} onChange={v => set({ touchMode: v })}
+                options={[{ value: 'auto', label: 'Auto' }, { value: 'on', label: 'On' }, { value: 'off', label: 'Off' }]} />
+            </SettingRow>
             <SettingRow id="showHero" label="Featured banner" hint="The big banner at the top of Home.">
               <Toggle label="Featured banner" checked={st.showHero} onChange={v => set({ showHero: v })} />
             </SettingRow>

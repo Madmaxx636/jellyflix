@@ -1,6 +1,6 @@
 // Feature checks: drives the built app through every look against mock Jellyfin servers, and checks both what it shows and what it
 // sends. Run with `npm run test:e2e`. Narrow or move a run with environment variables:
-//   AREAS=nav,browse,details,home,search,settings,collapse,profiles,player,robust,compat   LOOKS=netflix,hulu,hbo,disney
+//   AREAS=nav,browse,details,home,search,settings,collapse,profiles,player,robust,touch,compat   LOOKS=netflix,hulu,hbo,disney
 //   TAG=name (log and screenshot prefix)   BASE=8096 and CDP=9333 (ports; change both to run two at once)   WATCH=560 (seconds)
 import {
   BASE, J, check, click, clickText, count, ev, exists, finish, goto, hasClip, hash, logMark, logSince, logText, mock, mockPost, ok,
@@ -740,7 +740,66 @@ async function testPlayerRobust() {
 }
 
 // =====================================================================================
-const AREAS = (process.env.AREAS ?? 'nav,browse,details,home,search,settings,collapse,profiles,player,robust,compat').split(',')
+/** A finger on the screen, as the page sees one (touch events, then pointer events). */
+const touch = async (type, ...points) => send('Input.dispatchTouchEvent', { type, touchPoints: points.map(([x, y]) => ({ x, y })) })
+const tap = async (x, y) => { await touch('touchStart', [x, y]); await touch('touchEnd') }
+const swipe = async (x1, x2, y) => { await touch('touchStart', [x1, y]); for (const f of [0.25, 0.5, 0.75, 1]) await touch('touchMove', [x1 + (x2 - x1) * f, y]); await touch('touchEnd') }
+const rectOf = sel => ev(`(() => { const r = document.querySelector(${J(sel)}).getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height } })()`)
+const inputMode = () => ev(`document.documentElement.dataset.input`)
+
+async function testTouch() {
+  await setLook('netflix'); await reset(); await ev(`localStorage.removeItem('jellyflix.settings')`)
+  await send('Page.reload'); await waitFor(`document.querySelector('.nav')`, 30000); await home()
+  check('touch: a session with a mouse starts in mouse mode', (await inputMode()) === 'mouse')
+  await tap(8, 450)
+  check('touch: touching the screen switches to touch mode by itself', await ok(`document.documentElement.dataset.input === 'touch'`, 3000))
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 120, y: 330 })
+  check('touch: and moving the mouse switches back', await ok(`document.documentElement.dataset.input === 'mouse'`, 3000))
+
+  await patchSettings({ touchMode: 'on' })
+  check('touch: "On" keeps touch mode even with a mouse', (await inputMode()) === 'touch')
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 200, y: 340 }); await sleep(200)
+  check('touch: and stays', (await inputMode()) === 'touch')
+  await home()
+  check('touch: cards show their buttons without hovering', (await ev(`getComputedStyle(document.querySelector('.row .card .card-hover')).opacity`)) === '1')
+  check('touch: rows are swiped, so their arrows are gone', (await ev(`getComputedStyle(document.querySelector('.row .arrow')).display`)) === 'none')
+  const c = await rectOf('.row .card .card-link')
+  await tap(c.x + c.w / 2, c.y + 20)
+  check('touch: tapping a card opens it', await ok(`location.hash.startsWith('#/title/')`, 5000))
+  check('touch: buttons are at least 44 px tall', (await ev(`[...document.querySelectorAll('.hero.details .btn')].every(b => b.getBoundingClientRect().height >= 44)`)))
+
+  await patchSettings({ touchMode: 'off' })
+  await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 8, y: 450 }] }); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await sleep(200)
+  check('touch: "Off" stays in mouse mode even when touched', (await inputMode()) === 'mouse')
+
+  // swiping the banner (Hulu has a carousel)
+  await patchSettings({ touchMode: 'on' })
+  await setLook('hulu'); await home()
+  const before = await ev(`document.querySelector('.hero').dataset.hero`)
+  const h = await rectOf('.hero')
+  await swipe(h.x + h.w * 0.8, h.x + h.w * 0.2, h.y + h.h / 2)
+  check('touch: swiping the banner moves to the next title', await ok(`document.querySelector('.hero').dataset.hero !== ${J(before)}`, 3000))
+
+  if (!hasClip) return skip('touch: player gestures', 'ffmpeg is not installed')
+  await patchSettings({ touchMode: 'on', skipIntro: 'off', autoplayNext: false }, false)
+  await ev(`location.hash = '#/play/s1e1x1'`); await send('Page.reload'); await waitFor(`document.querySelector('.player')`, 30000)
+  await waitPlaying(1.2)
+  check('touch: no volume slider (the device has its own)', (await ev(`getComputedStyle(document.querySelector('.pc-vol')).display`)) === 'none')
+  const v = await rectOf('.player video')
+  await tap(v.x + v.w / 2, v.y + v.h / 2)
+  check('touch: one tap on the picture hides the controls', await ok(`document.querySelector('.player').classList.contains('idle')`, 3000))
+  await sleep(400)
+  await tap(v.x + v.w / 2, v.y + v.h / 2)
+  check('touch: and the next one shows them', await ok(`!document.querySelector('.player').classList.contains('idle')`, 3000))
+  await sleep(500)
+  const t0 = await video('v.currentTime')
+  await tap(v.x + v.w * 0.88, v.y + v.h / 2); await tap(v.x + v.w * 0.88, v.y + v.h / 2)
+  check('touch: a double tap on the right skips ahead', (await ok(`document.querySelector('.player video').currentTime > ${t0 + 8}`, 5000)) && (await exists('.pc-flash.right')), `${t0?.toFixed(1)} -> ${(await video('v.currentTime'))?.toFixed(1)}`)
+  await ev(`location.hash = '#/'`)
+}
+
+// =====================================================================================
+const AREAS = (process.env.AREAS ?? 'nav,browse,details,home,search,settings,collapse,profiles,player,robust,touch,compat').split(',')
 const LOOKS = (process.env.LOOKS ?? 'netflix,hulu,hbo,disney').split(',')
 const perLook = { nav: testNav, browse: testBrowse, details: testDetails, home: testHome, search: testSearch, settings: testSettings, collapse: testCollapse }
 
@@ -767,6 +826,8 @@ try {
         if (LOOKS.includes('netflix')) { await testPlayer(); await testPlayerRobust() } // the rest of the player checks run in the Netflix look
       } else if (area === 'robust') {
         await testRobust()
+      } else if (area === 'touch') {
+        await testTouch()
       } else if (area === 'compat') {
         await smoke(BASE + 1, 'Jellyfin-12-style server')
         await smoke(BASE + 2, 'older server (old routes only)')

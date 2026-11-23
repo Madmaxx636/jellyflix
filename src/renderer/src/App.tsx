@@ -3,7 +3,8 @@ import { HashRouter, Link, Route, Routes } from 'react-router-dom'
 import { createApi, loadSession, rememberServer, saveSession, setUnauthorizedHandler, type Api, type Session } from './api/jellyfin'
 import { forgetAll } from './hooks/memory'
 import { useScrollRestoration } from './hooks/useScrollRestoration'
-import { SettingsProvider } from './settings'
+import { useInputMode } from './inputMode'
+import { SettingsProvider, useSettings } from './settings'
 import { ThemeProvider } from './theme'
 import { clearFlags } from './userdata'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -25,6 +26,12 @@ import SettingsPage from './pages/Settings'
 
 // The player brings the video library (hls.js, more than half of the app's code), so it is only loaded when something plays.
 const Player = lazy(() => import('./pages/Player'))
+
+/** Keeps the page's touch or mouse mode current. */
+function InputModeSync() {
+  useInputMode(useSettings().settings.touchMode)
+  return null
+}
 
 function Shell({ session, api, onLogout }: { session: Session; api: Api; onLogout: () => void }) {
   useScrollRestoration()
@@ -82,6 +89,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <SettingsProvider>
+        <InputModeSync />
         <ErrorBoundary>
           {!session || !api ? (
             <Login onLogin={s => { setNotice(''); setSession(s) }} notice={notice} />

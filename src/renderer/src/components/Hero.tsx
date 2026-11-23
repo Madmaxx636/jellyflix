@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Api, Item } from '../api/jellyfin'
 import { usePageVisible } from '../hooks/usePageVisible'
@@ -18,6 +18,7 @@ export default function Hero({ items, api }: { items: Item[]; api: Api }) {
   const visible = usePageVisible()
   const [requested, setRequested] = useState(0)
   const [hover, setHover] = useState(false)
+  const swipe = useRef<{ x: number; y: number } | null>(null)
   const slides = theme.hero === 'carousel' ? items.slice(0, 5) : items.slice(0, 1)
   const index = requested < slides.length ? requested : 0
   const rotate = theme.hero === 'carousel' && settings.rotateHero && !settings.reduceMotion && slides.length > 1 && !hover && visible
@@ -31,7 +32,17 @@ export default function Hero({ items, api }: { items: Item[]; api: Api }) {
   const item = slides[index]
   if (!item) return null
   return (
-    <header className={`hero ${theme.hero}`} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} data-hero={item.Id}>
+    <header className={`hero ${theme.hero}`} data-hero={item.Id}
+      onPointerEnter={e => { if (e.pointerType === 'mouse') setHover(true) }} onPointerLeave={() => setHover(false)}
+      onPointerDown={e => { if (e.pointerType === 'touch') swipe.current = { x: e.clientX, y: e.clientY } }}
+      onPointerUp={e => {
+        // A swipe sideways moves to the next or previous featured title.
+        const from = swipe.current
+        swipe.current = null
+        if (!from || slides.length < 2) return
+        const dx = e.clientX - from.x
+        if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(e.clientY - from.y) * 1.5) setRequested((index + (dx < 0 ? 1 : slides.length - 1)) % slides.length)
+      }}>
       <Slide item={item} api={api} />
       {slides.length > 1 && (
         <>

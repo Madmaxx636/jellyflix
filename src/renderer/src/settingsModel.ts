@@ -14,13 +14,15 @@ export interface Settings {
   showHero: boolean
   rotateHero: boolean
   reduceMotion: boolean
+  /** Touch controls: follow what was used last, or always on or off. */
+  touchMode: 'auto' | 'on' | 'off'
   rows: { continueWatching: boolean; nextUp: boolean; myList: boolean; recommended: boolean; recent: boolean; topRated: boolean }
   genreRows: number
 }
 
 export const DEFAULTS: Settings = {
   autoplayNext: true, skipIntro: 'button', audioLang: '', subtitleMode: 'foreign', subtitleLang: 'eng', quality: 'auto', speed: 1,
-  cardSize: 'medium', showHero: true, rotateHero: true, reduceMotion: false,
+  cardSize: 'medium', showHero: true, rotateHero: true, reduceMotion: false, touchMode: 'auto',
   rows: { continueWatching: true, nextUp: true, myList: true, recommended: true, recent: true, topRated: true },
   genreRows: 6
 }
@@ -79,7 +81,8 @@ const CHOICES: { [K in keyof Settings]?: readonly unknown[] } = {
   skipIntro: ['button', 'auto', 'off'],
   subtitleMode: ['off', 'foreign', 'always'],
   quality: ['auto', '1080', '720', '480'],
-  cardSize: ['small', 'medium', 'large']
+  cardSize: ['small', 'medium', 'large'],
+  touchMode: ['auto', 'on', 'off']
 }
 const RANGES: { [K in keyof Settings]?: readonly [number, number] } = { speed: [0.25, 4], genreRows: [0, 12] }
 
