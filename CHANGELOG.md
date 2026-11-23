@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.2 (2026-11-23)
+
+### Added
+- Android: update checks. The app looks for a newer release on GitHub when it starts and every six hours, and Settings has a
+  "Check for updates" button. A newer version shows a banner with Update and Later. Update downloads the package, checks it
+  against the release's SHA-256 list (a download that doesn't match is thrown away) and hands it to Android's installer, which
+  asks once to allow installs from Jellyflix. Copies older than 0.3.2 can't do this, so install 0.3.2 by hand once.
+
 ## 0.3.1 (2026-11-23)
 
 ### Added
@@ -15,7 +23,7 @@
   My List, details with seasons and episodes, and playback with its own controls (seek bar, 10 s jumps, audio and
   subtitle choice, skip intro, remote control keys). It plays files directly when the device can and otherwise uses the
   stream the server makes. The four looks are available in Settings, and on a TV the navigation moves to the top and tiles
-  get bigger. Not there yet: update checks.
+  get bigger. 
 
 ## 0.2.1 (2026-11-23)
 
