@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (2026-11-23)
 
 ### Added
 - Android app for phones, tablets and Google TV, as one signed `.apk` on each release. Sign in, browse libraries, search,
