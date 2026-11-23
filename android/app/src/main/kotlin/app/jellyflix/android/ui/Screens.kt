@@ -318,7 +318,7 @@ fun DetailsScreen(api: JellyfinApi, look: Look, id: String, onPlay: (Item) -> Un
 // ---------------------------------------------------------------- settings
 
 @Composable
-fun SettingsScreen(look: Look, session: Session, trusted: Int, onLook: (Look) -> Unit, onForgetCerts: () -> Unit, onSignOut: () -> Unit) {
+fun SettingsScreen(look: Look, session: Session, trusted: Int, version: String, updateMessage: String?, onLook: (Look) -> Unit, onForgetCerts: () -> Unit, onCheckUpdates: () -> Unit, onSignOut: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Settings", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(16.dp))
@@ -329,6 +329,10 @@ fun SettingsScreen(look: Look, session: Session, trusted: Int, onLook: (Look) ->
         }
         Spacer(Modifier.height(24.dp))
         Text("Signed in as ${session.userName} on ${session.server}", color = Color(0xFFB3B3B3), style = MaterialTheme.typography.bodySmall)
+        Spacer(Modifier.height(12.dp))
+        Text("Jellyflix $version", color = Color(0xFFB3B3B3), style = MaterialTheme.typography.bodySmall)
+        OutlinedButton(onClick = onCheckUpdates) { Text("Check for updates") }
+        updateMessage?.let { Text(it, color = Color(0xFFB3B3B3), style = MaterialTheme.typography.bodySmall) }
         if (trusted > 0) {
             Spacer(Modifier.height(12.dp))
             OutlinedButton(onClick = onForgetCerts) { Text("Forget $trusted trusted certificate${if (trusted == 1) "" else "s"}") }

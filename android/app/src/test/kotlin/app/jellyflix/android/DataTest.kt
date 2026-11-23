@@ -64,3 +64,24 @@ class DataTest {
         assertTrue("Token=\"tok\"" in h)
     }
 }
+
+class UpdateTest {
+    @Test fun laterReleasesAreNewer() {
+        assertTrue(isNewer("0.3.0", "0.3.1"))
+        assertTrue(isNewer("0.9.9", "0.10.0"))
+        assertTrue(isNewer("0.0.0-dev", "0.3.1"))
+        assertTrue(isNewer("0.3.1", "v1.0.0"))
+    }
+
+    @Test fun sameOrOlderIsNot() {
+        assertFalse(isNewer("0.3.1", "0.3.1"))
+        assertFalse(isNewer("0.3.1", "0.3.0"))
+        assertFalse(isNewer("1.0", "1.0.0"))
+    }
+
+    @Test fun checksumListIsRead() {
+        val listing = "aaa111  Jellyflix-0.3.1-android.apk\nbbb222  Other-file.exe\n"
+        assertEquals("aaa111", checksumFor(listing, "Jellyflix-0.3.1-android.apk"))
+        assertNull(checksumFor(listing, "missing.apk"))
+    }
+}

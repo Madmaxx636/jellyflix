@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import app.jellyflix.android.data.Item
+import app.jellyflix.android.BuildConfig
 import app.jellyflix.android.data.JellyfinApi
 import app.jellyflix.android.data.Session
 import app.jellyflix.android.ui.*
@@ -41,9 +42,13 @@ class MainActivity : ComponentActivity() {
 private fun Root(app: JellyflixApp) {
     var session by remember { mutableStateOf(app.store.session) }
     var look by remember { mutableStateOf(lookById(app.store.look)) }
+    val scope = rememberCoroutineScope()
     var trusted by remember { mutableIntStateOf(app.store.trustedCerts.size) }
+    val updates = remember { UpdateModel(app, scope) }
     val tv = remember { isTv(app) }
     val stack = remember { mutableStateListOf<Route>(Route.Home) }
+
+    LaunchedEffect(Unit) { while (true) { updates.check(false); kotlinx.coroutines.delay(6 * 60 * 60 * 1000L) } }
 
     DisposableEffect(Unit) {
         app.http.onUnauthorized = { session = null; app.store.session = null }
@@ -75,14 +80,17 @@ private fun Root(app: JellyflixApp) {
                             }
                         },
                     ) { padding ->
-                        Box(Modifier.padding(padding).fillMaxSize()) {
+                        Column(Modifier.padding(padding).fillMaxSize()) {
+                            UpdateBanner(look, updates)
+                            Box(Modifier.weight(1f).fillMaxWidth()) {
                             when (route) {
                                 Route.Home -> HomeScreen(api, look, open) { stack.add(Route.Library(it)) }
                                 Route.Search -> SearchScreen(api, look, open)
-                                Route.Settings -> SettingsScreen(look, s, trusted, { look = it; app.store.look = it.id }, { app.store.trustedCerts = emptySet(); trusted = 0 }) { app.store.session = null; session = null }
+                                Route.Settings -> SettingsScreen(look, s, trusted, BuildConfig.VERSION_NAME, updates.message, { look = it; app.store.look = it.id }, { app.store.trustedCerts = emptySet(); trusted = 0 }, { updates.checkNow() }) { app.store.session = null; session = null }
                                 is Route.Library -> LibraryScreen(api, look, route.item, open)
                                 is Route.Details -> DetailsScreen(api, look, route.id, { stack.add(Route.Play(it)) }, open)
                                 is Route.Play -> Unit
+                            }
                             }
                         }
                     }
