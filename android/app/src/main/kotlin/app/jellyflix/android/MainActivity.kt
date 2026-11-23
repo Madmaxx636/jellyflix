@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import app.jellyflix.android.data.Item
 import app.jellyflix.android.data.JellyfinApi
 import app.jellyflix.android.data.Session
