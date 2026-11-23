@@ -11,7 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import android.app.UiModeManager
+import android.content.Context
+import android.content.res.Configuration
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -37,3 +41,14 @@ fun Message(text: String, modifier: Modifier = Modifier) {
 }
 
 fun minutes(ticks: Long?): String? = ticks?.let { val m = (it / 600_000_000L).toInt(); if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m" }
+
+/** True on Android TV / Google TV, where a remote's D-pad is the only input and the screen is read from across a room. */
+fun isTv(context: Context): Boolean {
+    val ui = context.getSystemService(Context.UI_MODE_SERVICE) as? UiModeManager
+    return ui?.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION ||
+        context.packageManager.hasSystemFeature("android.software.leanback")
+}
+
+val LocalTv = compositionLocalOf { false }
+
+fun String.styled(look: Look) = if (look.caps) uppercase() else this

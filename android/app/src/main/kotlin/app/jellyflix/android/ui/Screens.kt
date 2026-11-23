@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.KeyboardType
@@ -98,7 +99,8 @@ fun LoginScreen(app: JellyflixApp, look: Look, onSignedIn: (Session) -> Unit) {
 
 @Composable
 fun Tile(api: JellyfinApi, look: Look, item: Item, wide: Boolean = look.landscape, onClick: () -> Unit) {
-    val width = if (wide) 220.dp else 130.dp
+    val tv = LocalTv.current
+    val width = (if (wide) 220.dp else 130.dp) * (if (tv) 1.35f else 1f)
     val url = if (wide) api.thumb(item) else api.poster(item)
     Column(Modifier.width(width)) {
         Box(Modifier.fillMaxWidth().aspectRatio(if (wide) 16f / 9f else 2f / 3f).background(look.surface).focusRing(look, onClick)) {
@@ -116,7 +118,7 @@ fun Tile(api: JellyfinApi, look: Look, item: Item, wide: Boolean = look.landscap
 fun TileRow(api: JellyfinApi, look: Look, title: String, items: List<Item>, onOpen: (Item) -> Unit) {
     if (items.isEmpty()) return
     Column(Modifier.padding(vertical = 8.dp)) {
-        Text(title, Modifier.padding(horizontal = 16.dp, vertical = 6.dp), style = MaterialTheme.typography.titleMedium)
+        Text(title.styled(look), Modifier.padding(horizontal = 16.dp, vertical = 6.dp), style = MaterialTheme.typography.titleMedium)
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             items(items, key = { it.id }) { Tile(api, look, it) { onOpen(it) } }
         }
@@ -142,7 +144,7 @@ fun HomeScreen(api: JellyfinApi, look: Look, onOpen: (Item) -> Unit, onLibrary: 
     }
     Loaded(load) { d ->
         LazyColumn(Modifier.fillMaxSize()) {
-            item { Text("JELLYFLIX", Modifier.padding(16.dp), color = look.accent, style = MaterialTheme.typography.titleLarge) }
+            (d.resume.firstOrNull() ?: d.rows.firstNotNullOfOrNull { it.second.firstOrNull() })?.let { hero -> item { Hero(api, look, hero, onOpen) } }
             item { TileRow(api, look, look.continueTitle, d.resume, onOpen) }
             item { TileRow(api, look, "Next Up", d.nextUp, onOpen) }
             item {
@@ -158,12 +160,34 @@ fun HomeScreen(api: JellyfinApi, look: Look, onOpen: (Item) -> Unit, onLibrary: 
     }
 }
 
+/** The big banner at the top of home: the title you were last watching, or the newest one. */
+@Composable
+fun Hero(api: JellyfinApi, look: Look, item: Item, onOpen: (Item) -> Unit) {
+    val tv = LocalTv.current
+    val shape = if (look.pill) androidx.compose.foundation.shape.RoundedCornerShape(50) else androidx.compose.foundation.shape.RoundedCornerShape(look.corner.dp)
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(tv) { if (tv) try { focus.requestFocus() } catch (e: Exception) { /* not laid out yet */ } }
+    Box(Modifier.fillMaxWidth().aspectRatio(if (tv) 21f / 9f else 16f / 10f).background(look.surface)) {
+        AsyncImage(api.backdrop(item) ?: api.thumb(item, 1280), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, look.background))))
+        Column(Modifier.align(Alignment.BottomStart).padding(16.dp).fillMaxWidth(if (tv) 0.5f else 1f)) {
+            Text("JELLYFLIX", color = look.accent, style = MaterialTheme.typography.labelLarge)
+            Text((if (item.type == "Episode") item.seriesName ?: item.name else item.name).styled(look), style = if (tv) MaterialTheme.typography.displaySmall else MaterialTheme.typography.headlineMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            item.overview?.let { Text(it, maxLines = if (tv) 3 else 2, overflow = TextOverflow.Ellipsis, color = Color(0xFFDDDDDD), style = MaterialTheme.typography.bodyMedium) }
+            Spacer(Modifier.height(10.dp))
+            Button(onClick = { onOpen(item) }, shape = shape, modifier = Modifier.focusRequester(focus), colors = ButtonDefaults.buttonColors(containerColor = look.accent, contentColor = Color.White)) {
+                Icon(Icons.Default.PlayArrow, null); Text("Details")
+            }
+        }
+    }
+}
+
 // ---------------------------------------------------------------- library and search grids
 
 @Composable
 fun GridOf(api: JellyfinApi, look: Look, items: List<Item>, onOpen: (Item) -> Unit) {
     if (items.isEmpty()) { Message("Nothing here."); return }
-    LazyVerticalGrid(GridCells.Adaptive(if (look.landscape) 200.dp else 120.dp), contentPadding = PaddingValues(16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    LazyVerticalGrid(GridCells.Adaptive((if (look.landscape) 200.dp else 120.dp) * (if (LocalTv.current) 1.35f else 1f)), contentPadding = PaddingValues(16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         items(items, key = { it.id }) { Tile(api, look, it) { onOpen(it) } }
     }
 }
@@ -217,13 +241,13 @@ fun DetailsScreen(api: JellyfinApi, look: Look, id: String, onPlay: (Item) -> Un
             }
             item {
                 Column(Modifier.padding(16.dp)) {
-                    Text(t.name, style = MaterialTheme.typography.headlineMedium)
+                    Text(t.name.styled(look), style = MaterialTheme.typography.headlineMedium)
                     Text(listOfNotNull(t.productionYear?.toString(), t.officialRating, minutes(t.runTimeTicks), t.genres?.take(3)?.joinToString(", ")).joinToString("  •  "), color = Color(0xFFB3B3B3), style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(12.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (!series) {
                             val resumed = (t.userData?.playbackPositionTicks ?: 0) > 0
-                            Button(onClick = { onPlay(t) }, colors = ButtonDefaults.buttonColors(containerColor = look.accent, contentColor = Color.White)) {
+                            Button(onClick = { onPlay(t) }, shape = if (look.pill) androidx.compose.foundation.shape.RoundedCornerShape(50) else androidx.compose.foundation.shape.RoundedCornerShape(look.corner.dp), colors = ButtonDefaults.buttonColors(containerColor = look.accent, contentColor = Color.White)) {
                                 Icon(Icons.Default.PlayArrow, null); Text(if (resumed) "Resume" else "Play")
                             }
                             Spacer(Modifier.width(10.dp))

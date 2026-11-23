@@ -40,6 +40,7 @@ class MainActivity : ComponentActivity() {
 private fun Root(app: JellyflixApp) {
     var session by remember { mutableStateOf(app.store.session) }
     var look by remember { mutableStateOf(lookById(app.store.look)) }
+    val tv = remember { isTv(app) }
     val stack = remember { mutableStateListOf<Route>(Route.Home) }
 
     DisposableEffect(Unit) {
@@ -48,7 +49,7 @@ private fun Root(app: JellyflixApp) {
     }
 
     val colors = darkColorScheme(primary = look.accent, background = look.background, surface = look.background, onBackground = Color.White, onSurface = Color.White)
-    MaterialTheme(colorScheme = colors) {
+    CompositionLocalProvider(LocalTv provides tv) { MaterialTheme(colorScheme = colors) {
         Surface(Modifier.fillMaxSize(), color = look.background) {
             val s = session
             if (s == null) {
@@ -63,8 +64,9 @@ private fun Root(app: JellyflixApp) {
                 } else {
                     Scaffold(
                         containerColor = look.background,
+                        topBar = { if (tv) TvNav(look, route, stack) },
                         bottomBar = {
-                            NavigationBar(containerColor = look.surface) {
+                            if (!tv) NavigationBar(containerColor = look.surface) {
                                 NavigationBarItem(route is Route.Home, { stack.clear(); stack.add(Route.Home) }, { Icon(Icons.Default.Home, "Home") }, label = { Text("Home") })
                                 NavigationBarItem(route is Route.Search, { stack.clear(); stack.add(Route.Home); stack.add(Route.Search) }, { Icon(Icons.Default.Search, "Search") }, label = { Text("Search") })
                                 NavigationBarItem(route is Route.Settings, { stack.clear(); stack.add(Route.Home); stack.add(Route.Settings) }, { Icon(Icons.Default.Settings, "Settings") }, label = { Text("Settings") })
@@ -85,5 +87,20 @@ private fun Root(app: JellyflixApp) {
                 }
             }
         }
+    }
+    }
+}
+
+/** On a TV the navigation sits along the top, where a remote reaches it with Up. */
+@Composable
+private fun TvNav(look: Look, route: Route, stack: MutableList<Route>) {
+    Row(Modifier.fillMaxWidth().background(look.background).padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        Text("JELLYFLIX", color = look.accent, style = MaterialTheme.typography.titleLarge)
+        @Composable fun entry(label: String, on: Boolean, go: () -> Unit) {
+            Text(label.styled(look), Modifier.focusRing(look, go).padding(horizontal = 14.dp, vertical = 8.dp), color = if (on) look.accent else Color.White, style = MaterialTheme.typography.titleMedium)
+        }
+        entry("Home", route is Route.Home) { stack.clear(); stack.add(Route.Home) }
+        entry("Search", route is Route.Search) { stack.clear(); stack.add(Route.Home); stack.add(Route.Search) }
+        entry("Settings", route is Route.Settings) { stack.clear(); stack.add(Route.Home); stack.add(Route.Settings) }
     }
 }
