@@ -60,6 +60,12 @@ describe('the client', () => {
 
     fetchMock.mockClear()
     await api.views()
+    expect(fetchMock).not.toHaveBeenCalled() // pages share one answer for a minute
+
+    const later = Date.now() + 61_000
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(later)
+    await api.views()
+    clock.mockRestore()
     expect(fetchMock.mock.calls.map(c => c[0])).toEqual([`${s}/Users/u1/Views`]) // straight to the one that worked
   })
 

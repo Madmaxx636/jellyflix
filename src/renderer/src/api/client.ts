@@ -6,6 +6,8 @@ import { planPlayback, playbackRequest } from './playback'
 import type { Item, MediaSource, Page, Person, Playback, PlaybackInfoResponse, PlaybackOptions, Prepared, PublicInfo, Query, Recommendation, Segment, Session, View } from './types'
 
 const FIELDS = 'Overview,Genres,ProductionYear,OfficialRating,CommunityRating,RunTimeTicks'
+/** What a poster card shows. Overviews are the bulk of a big page's size, so grids leave them out. */
+const LEAN_FIELDS = 'ProductionYear,OfficialRating,RunTimeTicks'
 type ListOf<T> = { Items: T[]; TotalRecordCount?: number }
 type List = ListOf<Item>
 type Attempt = string | [string, RequestInit]
@@ -40,11 +42,19 @@ async function firstThatExists<T>(s: Session, name: string, attempts: Attempt[],
   throw last
 }
 
+const VIEWS_TTL_MS = 60_000
+const viewsCache = new Map<string, { at: number; promise: Promise<View[]> }>()
+
 /** The query string for /Items. */
 export function itemsQuery(s: Pick<Session, 'userId'>, q: Query): string {
   // A server can be set to "group movies into collections", which swaps each movie for its collection in plain lists and
   // turns a Movies page into collection folders. Say no: collections have their own pages here.
-  const p = new URLSearchParams({ userId: s.userId, Fields: FIELDS, EnableTotalRecordCount: 'true', CollapseBoxSetItems: 'false', Recursive: 'true' })
+  // Counting the whole library costs the server time on every page, and the count is the same, so only the first page asks.
+  const p = new URLSearchParams({
+    userId: s.userId, Fields: q.lean ? LEAN_FIELDS : FIELDS, EnableTotalRecordCount: q.start ? 'false' : 'true', CollapseBoxSetItems: 'false', Recursive: 'true'
+  })
+  if (q.lean) { p.set('EnableImageTypes', 'Primary,Thumb,Backdrop'); p.set('ImageTypeLimit', '1') }
+  if (q.tags?.length) p.set('Tags', q.tags.join('|'))
   if (q.parentId) p.set('ParentId', q.parentId)
   if (q.types?.length) p.set('IncludeItemTypes', q.types.join(','))
   if (q.genres?.length) p.set('Genres', q.genres.join('|'))
@@ -107,7 +117,17 @@ function build(s: Session, signal?: AbortSignal) {
       const r = await get<List>(`/Items?${itemsQuery(s, q)}`)
       return { items: r.Items, total: r.TotalRecordCount ?? r.Items.length }
     },
-    views: () => first<ListOf<View>>('views', [`/UserViews?userId=${s.userId}`, `/Users/${s.userId}/Views`]).then(r => r.Items),
+    // Every page that lists libraries asks for them, so one answer is shared for a minute. (It is fetched without this
+    // client's abort signal: leaving a page must not cancel the request another page is waiting on.)
+    views: () => {
+      const key = `${s.server}|${s.userId}`
+      const hit = viewsCache.get(key)
+      if (hit && Date.now() - hit.at < VIEWS_TTL_MS) return hit.promise
+      const promise = firstThatExists<ListOf<View>>(s, 'views', [`/UserViews?userId=${s.userId}`, `/Users/${s.userId}/Views`]).then(r => r.Items)
+      viewsCache.set(key, { at: Date.now(), promise })
+      promise.catch(() => { if (viewsCache.get(key)?.promise === promise) viewsCache.delete(key) })
+      return promise
+    },
     genres: (opts: { parentId?: string; types?: string[] } = {}) => {
       const p = new URLSearchParams({ userId: s.userId, SortBy: 'SortName', SortOrder: 'Ascending', IncludeItemTypes: (opts.types ?? ['Movie', 'Series']).join(',') })
       if (opts.parentId) p.set('ParentId', opts.parentId)
@@ -167,7 +187,11 @@ function build(s: Session, signal?: AbortSignal) {
       return ''
     },
     personImage: (p: Person, w = 240) => (p.PrimaryImageTag ? image(p.Id, p.PrimaryImageTag, w) : ''),
-    avatar: () => (s.avatarTag ? `${s.server}/Users/${seg(s.userId)}/Images/Primary?maxWidth=96&tag=${encodeURIComponent(s.avatarTag)}` : ''),
+    /** The profile picture's address. [retry] makes a fresh address after a failed load, so the browser asks again. */
+    avatar: (tag = s.avatarTag, retry = 0) =>
+      (tag ? `${s.server}/Users/${seg(s.userId)}/Images/Primary?maxWidth=96&tag=${encodeURIComponent(tag)}${retry ? `&retry=${retry}` : ''}` : ''),
+    /** The signed-in person's current picture tag (the one saved at sign-in goes stale when the picture is changed). */
+    avatarTag: () => get<{ PrimaryImageTag?: string }>(`/Users/${seg(s.userId)}`).then(r => r.PrimaryImageTag).catch(() => undefined),
 
     // ----- playback -----
     segments: async (id: string): Promise<Segment[]> => {

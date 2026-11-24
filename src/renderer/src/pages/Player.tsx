@@ -295,34 +295,30 @@ function Playing({ api, id, frame, item, first, onRetry }: {
 
   const choose = (apply: () => void) => { apply(); closeMenu() }
 
-  // Touch: one tap on the picture shows or hides the controls; two taps skip back (left third), forward (right third) or
-  // pause and play (middle).
+  // Touch: a tap on the picture shows the controls when they are hidden. With the controls showing, a tap in the middle
+  // pauses or plays and a tap at the sides hides them; two quick taps at a side skip back (left third) or forward (right third).
   const onPictureTap = (e: ReactPointerEvent<HTMLVideoElement>) => {
     if (e.pointerType !== 'touch') return
     const now = performance.now()
     tap.current.lastTouch = now
     const box = e.currentTarget.getBoundingClientRect()
     const across = (e.clientX - box.left) / box.width
-    if (now - tap.current.at < DOUBLE_TAP_MS) {
+    const side = across < 1 / 3 ? 'left' : across > 2 / 3 ? 'right' : 'center'
+    if (menu) { closeMenu(); tap.current.at = 0; return }
+    if (side !== 'center' && now - tap.current.at < DOUBLE_TAP_MS) {
       clearTimeout(tap.current.timer)
       tap.current.at = 0
-      const show = (by: number, side: 'left' | 'right') => {
-        bump(by)
-        setFlash({ id: ++tap.current.count, label: `${by > 0 ? '+' : '−'}${SKIP_SECONDS} s`, side })
-        window.setTimeout(() => setFlash(cur => (cur && cur.id === tap.current.count ? null : cur)), 700)
-      }
-      if (across < 1 / 3) show(-SKIP_SECONDS, 'left')
-      else if (across > 2 / 3) show(SKIP_SECONDS, 'right')
-      else toggle()
+      const by = side === 'left' ? -SKIP_SECONDS : SKIP_SECONDS
+      bump(by)
+      setFlash({ id: ++tap.current.count, label: `${by > 0 ? '+' : '−'}${SKIP_SECONDS} s`, side })
+      window.setTimeout(() => setFlash(cur => (cur && cur.id === tap.current.count ? null : cur)), 700)
       return
     }
+    clearTimeout(tap.current.timer)
+    if (idle && playing) { wake(); tap.current.at = side === 'center' ? 0 : now; return }
+    if (side === 'center') { tap.current.at = 0; toggle(); wake(); return }
     tap.current.at = now
-    tap.current.timer = window.setTimeout(() => {
-      tap.current.at = 0
-      if (menu) closeMenu()
-      else if (idle) wake()
-      else setIdle(true)
-    }, DOUBLE_TAP_MS)
+    tap.current.timer = window.setTimeout(() => { tap.current.at = 0; setIdle(true) }, DOUBLE_TAP_MS)
   }
 
   return (

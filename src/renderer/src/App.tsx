@@ -7,6 +7,8 @@ import { useInputMode } from './inputMode'
 import { SettingsProvider, useSettings } from './settings'
 import { ThemeProvider } from './theme'
 import { clearFlags } from './userdata'
+import { useAppScale } from './hooks/useAppScale'
+import BackGestures from './components/BackGestures'
 import ErrorBoundary from './components/ErrorBoundary'
 import NavBar from './components/NavBar'
 import ToastHost from './components/Toast'
@@ -31,6 +33,13 @@ const Player = lazy(() => import('./pages/Player'))
 /** Keeps the page's touch or mouse mode current. */
 function InputModeSync() {
   useInputMode(useSettings().settings.touchMode)
+  return null
+}
+
+/** Applies the interface size from Settings, and its keyboard and pinch shortcuts. */
+function ScaleSync() {
+  const { settings, set } = useSettings()
+  useAppScale(settings.scale, scale => set({ scale }))
   return null
 }
 
@@ -91,11 +100,13 @@ export default function App() {
     <ThemeProvider>
       <SettingsProvider>
         <InputModeSync />
+        <ScaleSync />
         <ErrorBoundary>
           {!session || !api ? (
             <Login onLogin={s => { setNotice(''); setSession(s) }} notice={notice} />
           ) : (
             <HashRouter>
+              <BackGestures />
               <Routes>
                 <Route path="/play/:id" element={<Suspense fallback={<main className="player-frame"><p className="pc-loading" role="status">Loading…</p></main>}><Player api={api} /></Suspense>} />
                 <Route path="*" element={<Shell session={session} api={api} onLogout={logout} />} />

@@ -68,6 +68,7 @@ main:focus { outline: none; }
 .actions { display: flex; gap: 12px; margin-top: 18px; flex-wrap: wrap; align-items: center; }
 .hero.details { height: 62vh; }
 .hero.details .hero-body { max-width: 800px; }
+.hero-season { margin: 0 0 8px; font-size: .85rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); text-shadow: 0 1px 6px rgba(0, 0, 0, .8); }
 .hero-dots { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); display: flex; gap: 8px; z-index: 2; }
 .hero-dots button { width: 9px; height: 9px; border-radius: 50%; border: 0; padding: 0; background: rgba(255, 255, 255, .4); cursor: pointer; transition: width .25s, background .25s; }
 .hero-dots button.on { width: 26px; border-radius: 6px; background: #fff; }

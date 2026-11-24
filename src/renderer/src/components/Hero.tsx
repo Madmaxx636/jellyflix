@@ -12,7 +12,7 @@ import ListButton from './ListButton'
 const ROTATE_EVERY_MS = 8000
 
 /** The featured banner: a single title, or a rotating carousel of up to five, depending on the look. */
-export default function Hero({ items, api }: { items: Item[]; api: Api }) {
+export default function Hero({ items, api, label }: { items: Item[]; api: Api; label?: string }) {
   const { theme } = useTheme()
   const { settings } = useSettings()
   const visible = usePageVisible()
@@ -43,7 +43,7 @@ export default function Hero({ items, api }: { items: Item[]; api: Api }) {
         const dx = e.clientX - from.x
         if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(e.clientY - from.y) * 1.5) setRequested((index + (dx < 0 ? 1 : slides.length - 1)) % slides.length)
       }}>
-      <Slide item={item} api={api} />
+      <Slide item={item} api={api} label={label} />
       {slides.length > 1 && (
         <>
           <div className="hero-dots">
@@ -57,7 +57,7 @@ export default function Hero({ items, api }: { items: Item[]; api: Api }) {
   )
 }
 
-function Slide({ item, api }: { item: Item; api: Api }) {
+function Slide({ item, api, label }: { item: Item; api: Api; label?: string }) {
   const nav = useNavigate()
   const { theme } = useTheme()
   const bg = api.backdrop(item)
@@ -66,6 +66,7 @@ function Slide({ item, api }: { item: Item; api: Api }) {
       <div className="hero-art" key={item.Id} style={bg ? { backgroundImage: `url(${bg})` } : undefined} />
       <div className="hero-fade" />
       <div className="hero-body" key={`b${item.Id}`}>
+        {label && <p className="hero-season">{label}</p>}
         <h1>{item.Name}</h1>
         <p className="meta">
           {item.ProductionYear} {item.OfficialRating && <span className="badge">{item.OfficialRating}</span>}

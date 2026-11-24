@@ -7,6 +7,7 @@ import { addEditingContextMenu, allowServerResponses, guardNavigation, restrictP
 import { handleCertificates } from './certificates'
 import { startUpdates } from './updater'
 import { restoreWindowState, trackWindowState } from './windowState'
+import { zoomKeyOf } from '../shared/zoom'
 
 // Test hook: with JELLYFLIX_HIDDEN=1 the app renders offscreen and never shows a window, so UI
 // tests can drive it over --remote-debugging-port without putting anything on the user's desktop.
@@ -69,6 +70,14 @@ function createWindow(): void {
 
   guardNavigation(win.webContents, isAppUrl)
   addEditingContextMenu(win.webContents)
+  // Ctrl or Cmd with + - 0 changes the app's own size setting (see Settings > Interface size) instead of the browser's zoom.
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return
+    const key = zoomKeyOf({ key: input.key, control: input.control, meta: input.meta, alt: input.alt })
+    if (!key) return
+    event.preventDefault()
+    win.webContents.send('view:zoom', key)
+  })
   recoverFromCrashes(win)
 
   if (DEV_URL) void win.loadURL(DEV_URL)

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { SCALE_STEPS, nearestStep } from '../../../shared/zoom'
 import { APP_VERSION, type Api, type Session } from '../api/jellyfin'
 import { useLoad } from '../hooks/useLoad'
 import { usePageTitle } from '../hooks/usePageTitle'
@@ -93,6 +94,10 @@ export default function SettingsPage({ api, session, onLogout }: { api: Api; ses
               <Select<Settings['touchMode']> label="Touch controls" value={st.touchMode} onChange={v => set({ touchMode: v })}
                 options={[{ value: 'auto', label: 'Auto' }, { value: 'on', label: 'On' }, { value: 'off', label: 'Off' }]} />
             </SettingRow>
+            <SettingRow id="scale" label="Interface size" hint="Makes everything bigger or smaller. Ctrl and + or −, or pinching a trackpad, does the same; Ctrl and 0 goes back to normal.">
+              <Select<number> label="Interface size" value={nearestStep(st.scale)} onChange={v => set({ scale: v })}
+                options={SCALE_STEPS.map(v => ({ value: v, label: `${Math.round(v * 100)}%` }))} />
+            </SettingRow>
             <SettingRow id="showHero" label="Featured banner" hint="The big banner at the top of Home.">
               <Toggle label="Featured banner" checked={st.showHero} onChange={v => set({ showHero: v })} />
             </SettingRow>
@@ -114,6 +119,9 @@ export default function SettingsPage({ api, session, onLogout }: { api: Api; ses
             </SettingRow>
             <SettingRow id="row-myList" label={w.myList}>
               <Toggle label={w.myList} checked={st.rows.myList} onChange={v => setRow('myList', v)} />
+            </SettingRow>
+            <SettingRow id="row-seasonal" label="Seasonal banner" hint="In the weeks around Valentine's Day, Halloween and Christmas, the featured banner shows that holiday's movies.">
+              <Toggle label="Seasonal banner" checked={st.rows.seasonal} onChange={v => setRow('seasonal', v)} />
             </SettingRow>
             <SettingRow id="row-recommended" label="Recommendations" hint={`Rows like “${w.becauseYouWatched('a title')}”.`}>
               <Toggle label="Recommendations" checked={st.rows.recommended} onChange={v => setRow('recommended', v)} />

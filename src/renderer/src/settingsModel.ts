@@ -16,14 +16,16 @@ export interface Settings {
   reduceMotion: boolean
   /** Touch controls: follow what was used last, or always on or off. */
   touchMode: 'auto' | 'on' | 'off'
-  rows: { continueWatching: boolean; nextUp: boolean; myList: boolean; recommended: boolean; recent: boolean; topRated: boolean }
+  /** How big everything is: 1 is normal (see shared/zoom.ts for the steps). */
+  scale: number
+  rows: { continueWatching: boolean; nextUp: boolean; myList: boolean; recommended: boolean; recent: boolean; topRated: boolean; seasonal: boolean }
   genreRows: number
 }
 
 export const DEFAULTS: Settings = {
   autoplayNext: true, skipIntro: 'button', audioLang: '', subtitleMode: 'foreign', subtitleLang: 'eng', quality: 'auto', speed: 1,
-  cardSize: 'medium', showHero: true, rotateHero: true, reduceMotion: false, touchMode: 'auto',
-  rows: { continueWatching: true, nextUp: true, myList: true, recommended: true, recent: true, topRated: true },
+  cardSize: 'medium', showHero: true, rotateHero: true, reduceMotion: false, touchMode: 'auto', scale: 1,
+  rows: { continueWatching: true, nextUp: true, myList: true, recommended: true, recent: true, topRated: true, seasonal: true },
   genreRows: 6
 }
 
@@ -84,7 +86,7 @@ const CHOICES: { [K in keyof Settings]?: readonly unknown[] } = {
   cardSize: ['small', 'medium', 'large'],
   touchMode: ['auto', 'on', 'off']
 }
-const RANGES: { [K in keyof Settings]?: readonly [number, number] } = { speed: [0.25, 4], genreRows: [0, 12] }
+const RANGES: { [K in keyof Settings]?: readonly [number, number] } = { speed: [0.25, 4], genreRows: [0, 12], scale: [0.5, 3] }
 
 function usable(key: keyof Settings, value: unknown): boolean {
   if (typeof value !== typeof DEFAULTS[key]) return false

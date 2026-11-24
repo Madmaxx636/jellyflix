@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink as RouterLink, useLocation, useNavigate } from 'react-router-dom'
 import type { Api, Session } from '../api/jellyfin'
 import { THEMES, useTheme, type NavLink as NavItem } from '../theme'
-import { hueOf } from '../util/library'
+import Avatar from './Avatar'
 import Icon from './Icon'
 
 type Menu = 'more' | 'look' | 'profile' | 'burger'
@@ -24,7 +24,6 @@ export default function NavBar({ session, api, onLogout }: { session: Session; a
   const w = theme.words
   const onSearchPage = loc.pathname === '/search'
   const q = onSearchPage ? new URLSearchParams(loc.search).get('q') ?? '' : ''
-  const avatar = api.avatar()
 
   useEffect(() => {
     const on = () => setScrolled(window.scrollY > 24)
@@ -110,9 +109,7 @@ export default function NavBar({ session, api, onLogout }: { session: Session; a
 
         <div className="nav-menu profile">
           <button className="avatar" onClick={() => toggle('profile')} aria-expanded={menu === 'profile'} aria-label={`Profile: ${session.userName}`}>
-            {avatar
-              ? <img src={avatar} alt="" />
-              : <span style={{ background: `hsl(${hueOf(session.userName)} 55% 42%)` }}>{session.userName.slice(0, 1).toUpperCase()}</span>}
+            <Avatar api={api} name={session.userName} />
           </button>
           {menu === 'profile' && (
             <div className="menu right">

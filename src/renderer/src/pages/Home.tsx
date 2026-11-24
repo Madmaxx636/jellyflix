@@ -5,7 +5,9 @@ import { useLoad } from '../hooks/useLoad'
 import { useSettings } from '../settings'
 import { useTheme, type Words } from '../theme'
 import { isBrowsable } from '../util/library'
+import { seasonFor, type Season } from '../util/seasons'
 import { seedFrom, shuffled } from '../util/shuffle'
+import { seasonalMovies } from '../api/seasonal'
 import Hero from '../components/Hero'
 import Row from '../components/Row'
 import { ErrorBox, RowsSkeleton } from '../components/Status'
@@ -17,6 +19,7 @@ const HERO_SLIDES = 5
 interface HomeData {
   resume: Item[]; nextUp: Item[]; movies: Item[]; shows: Item[]; favs: Item[]; top: Item[]
   recs: Recommendation[]; views: View[]; genreRows: { title: string; items: Item[] }[]
+  season: Season | null; seasonal: Item[]
 }
 interface RowDef { key: string; title: string; items: Item[]; ranked?: boolean; to?: string }
 
@@ -30,7 +33,8 @@ function recTitle(r: Recommendation, w: Words): string {
 async function loadHome(api: Api): Promise<HomeData> {
   const safe = <T,>(p: Promise<T>, fallback: T) => p.catch(() => fallback)
   // Continue Watching is the canary: if even that fails, it's a sign-in or connection problem and worth showing.
-  const [resume, nextUp, movies, shows, genres, favs, top, recs, views] = await Promise.all([
+  const season = seasonFor(new Date())
+  const [resume, nextUp, movies, shows, genres, favs, top, recs, views, seasonal] = await Promise.all([
     api.resume(),
     safe(api.nextUp(), [] as Item[]),
     safe(api.latest('Movie'), [] as Item[]),
@@ -39,20 +43,31 @@ async function loadHome(api: Api): Promise<HomeData> {
     safe(api.items({ types: ['Movie', 'Series', 'BoxSet'], filters: ['IsFavorite'], sortBy: 'DateCreated', sortOrder: 'Descending', limit: 20 }).then(p => p.items), [] as Item[]),
     safe(api.items({ types: ['Movie', 'Series'], sortBy: 'CommunityRating', sortOrder: 'Descending', limit: 10 }).then(p => p.items), [] as Item[]),
     safe(api.recommendations(), [] as Recommendation[]),
-    safe(api.views(), [] as View[])
+    safe(api.views(), [] as View[]),
+    season ? safe(seasonalMovies(api, season), [] as Item[]) : Promise.resolve([] as Item[])
   ])
   const genreRows = await Promise.all(genres.slice(0, GENRE_ROWS).map(async g => ({ title: g, items: await safe(api.byGenre(g), [] as Item[]) })))
-  return { resume, nextUp, movies, shows, favs, top, recs, views: views.filter(isBrowsable), genreRows }
+  return { resume, nextUp, movies, shows, favs, top, recs, views: views.filter(isBrowsable), genreRows, season, seasonal }
 }
 
-/** Titles worth featuring (they have a backdrop and a description), in an order that stays the same for one visit to the page. */
-function featured(d: HomeData, seed: string): Item[] {
+const worthFeaturing = (it: Item) => !!it.BackdropImageTags?.length && !!it.Overview
+const MIN_SEASONAL_SLIDES = 2
+
+/**
+ * Titles worth featuring (they have a backdrop and a description), in an order that stays the same for one visit to the
+ * page. In a holiday's weeks the banner shows that holiday's movies instead, when the library has at least two to show.
+ */
+function featured(d: HomeData, seed: string, seasonal: boolean): { items: Item[]; season: Season | null } {
+  if (seasonal && d.season) {
+    const holiday = d.seasonal.filter(worthFeaturing)
+    if (holiday.length >= MIN_SEASONAL_SLIDES) return { items: shuffled(holiday, seedFrom(seed)).slice(0, HERO_SLIDES), season: d.season }
+  }
   const seen = new Set<string>()
   const pool: Item[] = []
   for (const it of [...d.movies, ...d.shows, ...d.top, ...d.recs.flatMap(r => r.Items)]) {
-    if (!seen.has(it.Id) && it.BackdropImageTags?.length && it.Overview) { seen.add(it.Id); pool.push(it) }
+    if (!seen.has(it.Id) && worthFeaturing(it)) { seen.add(it.Id); pool.push(it) }
   }
-  return shuffled(pool, seedFrom(seed)).slice(0, HERO_SLIDES)
+  return { items: shuffled(pool, seedFrom(seed)).slice(0, HERO_SLIDES), season: null }
 }
 
 export default function Home({ api, session }: { api: Api; session: Session }) {
@@ -61,7 +76,8 @@ export default function Home({ api, session }: { api: Api; session: Session }) {
   const { key: visit } = useLocation()
   const w = theme.words
   const { data: d, error, reload } = useLoad(api, 'home', loadHome, { remember: true })
-  const heroItems = useMemo(() => (d ? featured(d, visit) : []), [d, visit])
+  const hero = useMemo(() => (d ? featured(d, visit, st.rows.seasonal) : { items: [], season: null }), [d, visit, st.rows.seasonal])
+  const heroItems = hero.items
 
   if (error) return <div className="page"><ErrorBox error={error} what="your library" onRetry={reload} /></div>
   if (!d) return <div className="rows nohero"><RowsSkeleton /></div>
@@ -84,7 +100,7 @@ export default function Home({ api, session }: { api: Api; session: Session }) {
   const anything = rows.some(r => r.items.length)
   return (
     <>
-      {hasHero && <Hero items={heroItems} api={api} />}
+      {hasHero && <Hero items={heroItems} api={api} label={hero.season?.title} />}
       {theme.brandTiles && (
         <div className={`brand-row ${hasHero ? '' : 'nohero'}`} data-brands>
           {d.views.slice(0, 5).map(v => <LibraryTile key={v.Id} api={api} view={v} />)}

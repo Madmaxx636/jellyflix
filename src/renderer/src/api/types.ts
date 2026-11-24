@@ -90,6 +90,9 @@ export interface Query {
   limit?: number
   search?: string
   personId?: string
+  tags?: string[]
+  /** Leave out the fields only a detail page needs (overview, genres, rating): grids load faster. */
+  lean?: boolean
 }
 export interface Page { items: Item[]; total: number }
 

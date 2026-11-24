@@ -34,14 +34,23 @@
 [data-input="touch"] .row-scroll > * { scroll-snap-align: start; }
 .hero { touch-action: pan-y; }
 
-/* player */
+/* player: the controls are made for a finger, whichever look is on (the looks set their own sizes, so these are more specific) */
 [data-input="touch"] .pc-vol { display: none; }
-[data-input="touch"] .pc-scrub { height: 44px; }
-[data-input="touch"] .pc-scrub .knob { transform: scale(1); width: 20px; height: 20px; margin: -10px 0 0 -10px; }
-[data-input="touch"] .pc-btn { padding: 12px; }
-[data-input="touch"] .pc-menu button { padding: 14px 16px; font-size: 16px; }
-[data-input="touch"] .pc-skip { padding: 16px 30px; }
-[data-input="touch"] .pc-next-x { padding: 12px; }
+[data-input="touch"] .player[data-look] { --pc-menu-bottom: 168px; --pc-pad: max(4%, 22px); }
+[data-input="touch"] .pc-scrub { height: 48px; }
+[data-input="touch"] .pc-scrub::before, [data-input="touch"] .pc-scrub .buf, [data-input="touch"] .pc-scrub .pos, [data-input="touch"] .pc-scrub .mark { top: calc(50% - 4px); height: 8px; }
+[data-input="touch"] .pc-scrub .knob { transform: scale(1); width: 24px; height: 24px; margin: -12px 0 0 -12px; }
+[data-input="touch"] .pc-btn { padding: 14px; }
+[data-input="touch"] .pc-btn .icon { width: calc(var(--pc-icon) * 1.4); height: calc(var(--pc-icon) * 1.4); }
+[data-input="touch"] .pc-btn.play .icon { width: calc(var(--pc-icon) * 1.7); height: calc(var(--pc-icon) * 1.7); }
+[data-input="touch"] .pc-cluster { gap: 22px; }
+[data-input="touch"] .pc-clock { font-size: 18px; }
+[data-input="touch"] .pc-heading .pc-title { font-size: 1.35rem; }
+[data-input="touch"] .pc-menu { padding: 12px; }
+[data-input="touch"] .pc-menu button { padding: 16px 18px; font-size: 17px; }
+[data-input="touch"] .pc-skip { padding: 18px 34px; font-size: 1.2rem; }
+[data-input="touch"] .pc-next { width: min(460px, 90vw); }
+[data-input="touch"] .pc-next-x { padding: 14px; }
 .player video { touch-action: manipulation; }
 
 /* "+10 s" / "-10 s" after a double tap on the picture */
@@ -49,3 +58,8 @@
 .pc-flash.left { left: 8%; }
 .pc-flash.right { right: 8%; }
 @keyframes flash { 0% { opacity: 0; } 20%, 75% { opacity: 1; } 100% { opacity: 0; } }
+
+/* the swipe-from-the-edge "back" hint: a round arrow that follows the finger */
+.back-swipe { position: fixed; top: 50%; z-index: 90; width: 44px; height: 44px; margin-top: -22px; display: grid; place-items: center; border-radius: 50%; background: rgba(30, 30, 30, .92); color: #fff; box-shadow: 0 2px 12px rgba(0, 0, 0, .5); pointer-events: none; }
+.back-swipe.left { left: 0; }
+.back-swipe.right { right: 0; }

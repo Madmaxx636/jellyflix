@@ -75,7 +75,7 @@ export default function Browse(p: BrowseProps) {
   }, [lockedFilters, filter])
   const request = useMemo<Query>(() => ({
     parentId: p.base.parentId, personId: p.base.personId, types, genres: genre ? [genre] : undefined,
-    filters, sortBy: sort.by, sortOrder: sort.order
+    filters, sortBy: sort.by, sortOrder: sort.order, lean: true
   }), [p.base.parentId, p.base.personId, types, genre, filters, sort])
   const queryKey = JSON.stringify([request, attempt])
 
@@ -100,7 +100,7 @@ export default function Browse(p: BrowseProps) {
     try {
       const r = await api.with(signal).items({ ...request, start, limit: sort.by === 'Random' ? SHUFFLE_SIZE : PAGE_SIZE })
       if (signal.aborted) return // a newer query replaced this one
-      setShown(cur => ({ key: queryKey, items: start === 0 || cur.key !== queryKey ? r.items : [...cur.items, ...r.items], total: r.total, error: null }))
+      setShown(cur => ({ key: queryKey, items: start === 0 || cur.key !== queryKey ? r.items : [...cur.items, ...r.items], total: start === 0 || cur.key !== queryKey ? r.total : (cur.total ?? r.total), error: null }))
     } catch (e) {
       if (signal.aborted) return
       setShown(cur => ({ key: queryKey, items: cur.key === queryKey ? cur.items : [], total: cur.key === queryKey ? cur.total : null, error: e as Error }))

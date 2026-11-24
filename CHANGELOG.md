@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.4.0 (2026-11-23)
+
+### Added
+- Interface size. Settings > Appearance > Interface size scales the whole app from 75% to 200%. Ctrl or Cmd with + and −
+  changes it, Ctrl or Cmd with 0 goes back to normal, and pinching a trackpad does the same.
+- Seasonal banner. In the weeks around Valentine's Day (Feb 1-14), Halloween (October) and Christmas (December) the
+  featured banner on Home shows that holiday's movies, found by tag, name and genre, and goes back to the usual titles
+  afterwards. It follows the date by itself. Settings > Home screen can turn it off.
+- Going back by swiping: from either edge of a touch screen toward the middle (a round arrow follows the finger), or sideways
+  with two fingers on a trackpad.
+- Touch player: a tap on the picture shows hidden controls; with the controls showing, a tap in the middle pauses or plays and
+  a tap at the sides hides them. Two quick taps at a side still skip 10 seconds. (A double tap in the middle no longer pauses.)
+
+### Changed
+- Touch mode makes the player's controls bigger in every look: the buttons and their icons, the play button, the seek bar
+  and its handle, the clock, the menus and the Skip button.
+
+### Fixed
+- The profile picture sometimes didn't show. A picture that fails to load is now asked for again with the server's current
+  picture, and the first letter of the name is shown if it still doesn't come.
+- Libraries and other lists loaded slowly. Lists no longer download each title's overview and genres, the server counts the
+  whole library only for the first page, and pages that need the list of libraries share one answer for a minute.
+
 ## 0.3.2 (2026-11-23)
 
 ### Added

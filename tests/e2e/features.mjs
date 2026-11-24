@@ -745,9 +745,20 @@ async function testPlayerRobust() {
 /** A finger on the screen, as the page sees one (touch events, then pointer events). */
 const touch = async (type, ...points) => send('Input.dispatchTouchEvent', { type, touchPoints: points.map(([x, y]) => ({ x, y })) })
 const tap = async (x, y) => { await touch('touchStart', [x, y]); await touch('touchEnd') }
-const swipe = async (x1, x2, y) => { await touch('touchStart', [x1, y]); for (const f of [0.25, 0.5, 0.75, 1]) await touch('touchMove', [x1 + (x2 - x1) * f, y]); await touch('touchEnd') }
+const swipe = async (x1, x2, y) => { await touch('touchStart', [x1, y]); for (const f of [0.25, 0.5, 0.75, 1]) await touch('touchMove', [x1 + (x2 - x1) * f, y]); await touch('touchEnd'); await sleep(300) }
 const rectOf = sel => ev(`(() => { const r = document.querySelector(${J(sel)}).getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height } })()`)
 const inputMode = () => ev(`document.documentElement.dataset.input`)
+
+/** Taps the first card on Home and waits for its page. The first touch after a swipe is sometimes lost by the test rig, so it tries twice. */
+async function openFirstCard() {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await waitFor(`document.querySelector('.row .card .card-link')`, 10000); await sleep(800)
+    const card = await rectOf('.row .card .card-link')
+    await ev(`window.scrollTo(0, 0)`); await tap(card.x + card.w / 2, card.y + 20)
+    if (await ok(`document.querySelector('.hero.details')`, 3000)) { await sleep(600); return }
+  }
+  throw new Error('the card did not open')
+}
 
 async function testTouch() {
   await setLook('netflix'); await reset(); await ev(`localStorage.removeItem('jellyflix.settings')`)
@@ -769,6 +780,17 @@ async function testTouch() {
   await tap(c.x + c.w / 2, c.y + 20)
   check('touch: tapping a card opens it', await ok(`location.hash.startsWith('#/title/')`, 5000))
   check('touch: buttons are at least 44 px tall', (await ev(`[...document.querySelectorAll('.hero.details .btn')].every(b => b.getBoundingClientRect().height >= 44)`)))
+  await swipe(4, 220, 400)
+  check('touch: swiping in from the left edge goes back', await ok(`location.hash === '#/'`, 4000), await ev(`location.hash`))
+  await openFirstCard()
+  const edge = await ev(`window.innerWidth`); await swipe(edge - 6, edge - 220, 400)
+  check('touch: and so does swiping in from the right edge', await ok(`location.hash === '#/'`, 4000), await ev(`location.hash`))
+  await openFirstCard()
+  await swipe(400, 700, 400)
+  await sleep(300)
+  check('touch: a swipe that starts in the middle of the screen does not', (await ev(`location.hash`)).startsWith('#/title/'))
+  for (let i = 0; i < 10; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 400, y: 400, deltaX: -40, deltaY: 0 }); await sleep(16) }
+  check('touch: a two-finger swipe on a trackpad goes back', await ok(`location.hash === '#/'`, 4000), await ev(`location.hash`))
 
   await patchSettings({ touchMode: 'off' })
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 8, y: 450 }] }); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await sleep(200)
@@ -787,17 +809,66 @@ async function testTouch() {
   await ev(`location.hash = '#/play/s1e1x1'`); await send('Page.reload'); await waitFor(`document.querySelector('.player')`, 30000)
   await waitPlaying(1.2)
   check('touch: no volume slider (the device has its own)', (await ev(`getComputedStyle(document.querySelector('.pc-vol')).display`)) === 'none')
+  check('touch: the player buttons are big enough for a finger', await ev(`[...document.querySelectorAll('.pc-bar .pc-btn')].every(b => { const r = b.getBoundingClientRect(); return r.width >= 44 && r.height >= 44 })`))
   const v = await rectOf('.player video')
-  await tap(v.x + v.w / 2, v.y + v.h / 2)
-  check('touch: one tap on the picture hides the controls', await ok(`document.querySelector('.player').classList.contains('idle')`, 3000))
+  const middle = [v.x + v.w / 2, v.y + v.h / 2]
+  await tap(...middle)
+  check('touch: a tap in the middle pauses', await ok(`document.querySelector('.player video').paused`, 3000))
+  check('touch: and keeps the controls showing', !(await ev(`document.querySelector('.player').classList.contains('idle')`)))
   await sleep(400)
-  await tap(v.x + v.w / 2, v.y + v.h / 2)
-  check('touch: and the next one shows them', await ok(`!document.querySelector('.player').classList.contains('idle')`, 3000))
+  await tap(...middle)
+  check('touch: and the next one plays again', await ok(`!document.querySelector('.player video').paused`, 3000))
+  await sleep(400)
+  await tap(v.x + v.w * 0.12, v.y + v.h / 2)
+  check('touch: a tap at the side hides the controls', await ok(`document.querySelector('.player').classList.contains('idle')`, 3000))
+  await sleep(400)
+  await tap(...middle)
+  check('touch: a tap on the picture shows hidden controls, without pausing', (await ok(`!document.querySelector('.player').classList.contains('idle')`, 3000)) && !(await video('v.paused')))
   await sleep(500)
   const t0 = await video('v.currentTime')
   await tap(v.x + v.w * 0.88, v.y + v.h / 2); await tap(v.x + v.w * 0.88, v.y + v.h / 2)
   check('touch: a double tap on the right skips ahead', (await ok(`document.querySelector('.player video').currentTime > ${t0 + 8}`, 5000)) && (await exists('.pc-flash.right')), `${t0?.toFixed(1)} -> ${(await video('v.currentTime'))?.toFixed(1)}`)
+  await sleep(500)
+  await swipe(4, 220, v.y + v.h / 2)
+  check('touch: swiping in from the edge leaves the player', await ok(`!document.querySelector('.player')`, 5000), await ev(`location.hash`))
   await ev(`location.hash = '#/'`)
+}
+
+// =====================================================================================
+/** Interface size: the whole page scales, from Settings and from the keyboard. */
+async function testScale() {
+  await setLook('netflix'); await reset()
+  await patchSettings({ touchMode: 'off', scale: 1 })
+  await ev(`location.hash = '#/settings'`); await waitFor(`document.querySelector('#set-appearance')`, 10000)
+  const width = await ev(`window.innerWidth`)
+  await patchSettings({ scale: 1.5 })
+  const scaled = await ev(`window.innerWidth`)
+  check('scale: 150% shows two thirds as many pixels across', Math.abs(scaled - width / 1.5) < 2, `${width} -> ${scaled}`)
+  await patchSettings({ scale: 1 })
+  check('scale: back to 100% shows the original width', Math.abs((await ev(`window.innerWidth`)) - width) < 2)
+}
+
+// =====================================================================================
+/** Seasonal banner: in a holiday's weeks the featured banner shows that holiday's movies, chosen by the date. */
+async function testSeasonal() {
+  await setLook('netflix'); await reset(); await patchSettings({ touchMode: 'off' }); await home()
+  const label = `(document.querySelector('.hero-season') || {}).textContent || ''`
+  const on = date => send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { const R = Date; const fixed = new R(${J(date)}).getTime(); const D = class extends R { constructor(...a) { if (a.length) super(...a); else super(fixed) } static now() { return fixed } }; window.Date = D })()` })
+  const christmas = await on('2026-12-10T12:00:00')
+  await send('Page.reload'); await waitFor(`document.querySelector('.hero')`, 30000)
+  check('seasonal: in December the banner shows Christmas movies', await ok(`/Christmas/.test(${label})`, 5000), await ev(label))
+  check('seasonal: and the banner has a title to open', await ok(`document.querySelector('.hero h1').textContent.length > 0`, 2000))
+  await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: christmas.identifier })
+  const halloween = await on('2026-10-20T12:00:00')
+  await send('Page.reload'); await waitFor(`document.querySelector('.hero')`, 30000)
+  check('seasonal: in October it shows Halloween ones', await ok(`/Halloween/.test(${label})`, 5000), await ev(label))
+  await patchSettings({ rows: { continueWatching: true, nextUp: true, myList: true, recommended: true, recent: true, topRated: true, seasonal: false } })
+  await waitFor(`document.querySelector('.hero')`, 30000)
+  check('seasonal: Settings can turn it off', (await ev(label)) === '')
+  await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: halloween.identifier })
+  await patchSettings({ rows: { continueWatching: true, nextUp: true, myList: true, recommended: true, recent: true, topRated: true, seasonal: true } })
+  await waitFor(`document.querySelector('.hero')`, 30000); await sleep(500)
+  check('seasonal: outside its weeks it is the usual banner', (await ev(label)) === '')
 }
 
 // =====================================================================================
@@ -828,7 +899,7 @@ async function testDirectPlay() {
 }
 
 // =====================================================================================
-const AREAS = (process.env.AREAS ?? 'nav,browse,details,home,search,settings,collapse,profiles,player,robust,touch,compat').split(',')
+const AREAS = (process.env.AREAS ?? 'nav,browse,details,home,search,settings,collapse,profiles,player,robust,touch,scale,seasonal,compat').split(',')
 const LOOKS = (process.env.LOOKS ?? 'netflix,hulu,hbo,disney').split(',')
 const perLook = { nav: testNav, browse: testBrowse, details: testDetails, home: testHome, search: testSearch, settings: testSettings, collapse: testCollapse }
 
@@ -857,6 +928,10 @@ try {
         await testRobust()
       } else if (area === 'touch') {
         await testTouch()
+      } else if (area === 'scale') {
+        await testScale()
+      } else if (area === 'seasonal') {
+        await testSeasonal()
       } else if (area === 'compat') {
         await smoke(BASE + 1, 'Jellyfin-12-style server')
         await smoke(BASE + 2, 'older server (old routes only)')
