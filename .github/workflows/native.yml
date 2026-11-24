@@ -60,7 +60,9 @@ jobs:
         run: |
           # Both bundling tools added the same library path; macOS refuses a program that lists it twice.
           exe=jellyflix.app/Contents/MacOS/jellyflix
+          echo "rpaths before:"; otool -l "$exe" | grep -A2 LC_RPATH | grep path
           while [ "$(otool -l "$exe" | grep -c 'path @executable_path/../Frameworks/')" -gt 1 ]; do install_name_tool -delete_rpath @executable_path/../Frameworks/ "$exe"; done
+          echo "rpaths after:"; otool -l "$exe" | grep -A2 LC_RPATH | grep path
           # Changing the program's library paths breaks its signature; macOS refuses an unsigned or badly signed program, so sign it again.
           codesign --force --deep --sign - jellyflix.app
           offenders="$(for f in jellyflix.app/Contents/MacOS/jellyflix jellyflix.app/Contents/Frameworks/*.dylib jellyflix.app/Contents/PlugIns/*/*.dylib; do otool -L "$f" | tail -n +2 | grep -E '/opt/homebrew|/usr/local/(opt|Cellar)' | sed "s|^|$f: |"; done || true)"
