@@ -95,7 +95,7 @@ jobs:
               ldd "$f" 2>/dev/null | awk '/ucrt64/ {print $3}' | while read -r lib; do cp -n "$lib" ../dist/ ; done
             done
           done
-          cd .. && 7z a -tzip "$RUNNER_TEMP/Jellyflix-windows-x64.zip" ./dist/* >/dev/null
+          cd .. && powershell.exe -NoProfile -Command "Compress-Archive -Path '$(cygpath -w "$PWD/dist")\*' -DestinationPath '$(cygpath -w "$RUNNER_TEMP")\Jellyflix-windows-x64.zip'"
       - uses: actions/upload-artifact@v4
         with:
           name: jellyflix-native-windows

@@ -16,8 +16,15 @@ mock=$!
 trap 'kill $mock 2>/dev/null; rm -rf "$home"' EXIT
 sleep 1.5
 
-set +e
-JELLYFLIX_HEADLESS=1 JELLYFLIX_TEST_SERVER="http://127.0.0.1:$port" QT_QPA_PLATFORM=offscreen HOME="$home" \
-  timeout 90 "$app" 2>&1 | grep -E "^qml: (PASS|FAIL|=====)|Error|error" | sed 's/^qml: //'
-status=${PIPESTATUS[0]}
-exit "$status"
+# macOS has no `timeout`, so the time limit is kept here.
+out="$home/out.log"
+( JELLYFLIX_HEADLESS=1 JELLYFLIX_TEST_SERVER="http://127.0.0.1:$port" QT_QPA_PLATFORM=offscreen HOME="$home" "$app" >"$out" 2>&1; echo $? >"$home/status" ) &
+runner=$!
+for _ in $(seq 1 120); do
+  kill -0 "$runner" 2>/dev/null || break
+  sleep 1
+done
+if kill -0 "$runner" 2>/dev/null; then kill "$runner" 2>/dev/null; pkill -P "$runner" 2>/dev/null; echo "FAIL  the app did not finish in two minutes"; echo 124 >"$home/status"; fi
+wait "$runner" 2>/dev/null || true
+grep -E "^qml: (PASS|FAIL|=====)|Error|error" "$out" | sed 's/^qml: //' || true
+exit "$(cat "$home/status" 2>/dev/null || echo 1)"
