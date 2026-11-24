@@ -1,0 +1,30 @@
+name: Native app
+
+# Builds the native (Qt and mpv) app and lets it check itself against a made-up Jellyfin server, with no window and no sound.
+on:
+  push:
+    branches: [native]
+    paths: ['native/**', '.github/workflows/native.yml', 'tests/e2e/lib/mock-jellyfin.mjs', 'tests/e2e/lib/clip.mjs']
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.8.*
+          cache: true
+      - name: Libraries
+        run: sudo apt-get update && sudo apt-get install -y libmpv-dev ffmpeg libgl1-mesa-dev libxkbcommon-dev libegl1 libfontconfig1 libglib2.0-0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build
+        working-directory: native
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j4
+      - name: Self-test
+        run: native/tests/selftest.sh native/build/jellyflix
