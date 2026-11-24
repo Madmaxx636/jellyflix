@@ -27,4 +27,5 @@ done
 if kill -0 "$runner" 2>/dev/null; then kill "$runner" 2>/dev/null; pkill -P "$runner" 2>/dev/null; echo "FAIL  the app did not finish in two minutes"; echo 124 >"$home/status"; fi
 wait "$runner" 2>/dev/null || true
 grep -E "^qml: (PASS|FAIL|=====)|Error|error" "$out" | sed 's/^qml: //' || true
+if [ "$(cat "$home/status" 2>/dev/null || echo 1)" != "0" ]; then echo "--- the app's own output ---"; tail -n 25 "$out"; fi
 exit "$(cat "$home/status" 2>/dev/null || echo 1)"

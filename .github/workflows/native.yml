@@ -48,7 +48,10 @@ jobs:
       - name: Bundle Qt and mpv into the app
         working-directory: native/build
         run: |
-          "$(brew --prefix qt)/bin/macdeployqt" jellyflix.app -qmldir=../qml
+          # The test runs without a screen, which needs Qt's "offscreen" platform plugin; macdeployqt only brings the one for the screen.
+          mkdir -p jellyflix.app/Contents/PlugIns/platforms
+          cp "$(brew --prefix qt)/share/qt/plugins/platforms/libqoffscreen.dylib" jellyflix.app/Contents/PlugIns/platforms/
+          "$(brew --prefix qt)/bin/macdeployqt" jellyflix.app -qmldir=../qml -executable=jellyflix.app/Contents/PlugIns/platforms/libqoffscreen.dylib
           dylibbundler -od -b -x jellyflix.app/Contents/MacOS/jellyflix -d jellyflix.app/Contents/Frameworks -p @executable_path/../Frameworks
       - name: The bundled app needs nothing from Homebrew
         working-directory: native/build
