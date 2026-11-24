@@ -50,12 +50,17 @@ jobs:
         run: |
           "$(brew --prefix qt)/bin/macdeployqt" jellyflix.app -qmldir=../qml
           dylibbundler -od -b -x jellyflix.app/Contents/MacOS/jellyflix -d jellyflix.app/Contents/Frameworks -p @executable_path/../Frameworks
-          ditto -c -k --keepParent jellyflix.app "$RUNNER_TEMP/Jellyflix-macos-arm64.zip"
-      - name: The bundled app starts without Homebrew's libraries
+      - name: The bundled app needs nothing from Homebrew
+        working-directory: native/build
         run: |
-          mv "$(brew --prefix)/opt/mpv" "$RUNNER_TEMP/mpv-away" 2>/dev/null || true
-          native/tests/selftest.sh native/build/jellyflix.app/Contents/MacOS/jellyflix
-          mv "$RUNNER_TEMP/mpv-away" "$(brew --prefix)/opt/mpv" 2>/dev/null || true
+          # Changing the program's library paths breaks its signature; macOS refuses an unsigned or badly signed program, so sign it again.
+          codesign --force --deep --sign - jellyflix.app
+          offenders="$(for f in jellyflix.app/Contents/MacOS/jellyflix jellyflix.app/Contents/Frameworks/*.dylib jellyflix.app/Contents/PlugIns/*/*.dylib; do otool -L "$f" | tail -n +2 | grep -E '/opt/homebrew|/usr/local/(opt|Cellar)' | sed "s|^|$f: |"; done || true)"
+          if [ -n "$offenders" ]; then echo "Still pointing at Homebrew:"; echo "$offenders"; exit 1; fi
+      - name: Self-test the bundled app
+        run: native/tests/selftest.sh native/build/jellyflix.app/Contents/MacOS/jellyflix
+      - name: Zip
+        run: ditto -c -k --keepParent native/build/jellyflix.app "$RUNNER_TEMP/Jellyflix-macos-arm64.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: jellyflix-native-macos
