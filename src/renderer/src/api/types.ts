@@ -105,6 +105,8 @@ export interface PlaybackOptions {
   bitrate?: number
   /** False once playing the file as it is has failed. */
   direct?: boolean
+  /** False: never ask the server to convert (re-encode) anything. Playing the file as it is, or copying it into a stream, still works. */
+  convert?: boolean
 }
 
 /** How one title will be played: the address to give the video element, and what the server is doing for it. */

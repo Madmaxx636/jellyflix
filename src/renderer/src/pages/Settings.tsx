@@ -22,6 +22,9 @@ const LANG_OPTIONS = LANGUAGES.map(l => ({ value: l.code, label: l.label }))
 const CONFIRM_FOR_MS = 5000
 
 /** Settings / Account / App Settings. Every control here changes something the app really does. */
+const CONTROL_SIZES = [0.8, 1, 1.25, 1.5, 1.75, 2]
+const nearestOf = (list: number[], value: number) => list.reduce((best, v) => (Math.abs(v - value) < Math.abs(best - value) ? v : best), list[0])
+
 export default function SettingsPage({ api, session, onLogout }: { api: Api; session: Session; onLogout: () => void }) {
   const { settings: st, set, setRow, reset } = useSettings()
   const { theme, setTheme } = useTheme()
@@ -79,6 +82,41 @@ export default function SettingsPage({ api, session, onLogout }: { api: Api; ses
               <Select<number> label="Default playback speed" value={st.speed} onChange={v => set({ speed: v })}
                 options={[0.75, 1, 1.25, 1.5, 2].map(v => ({ value: v, label: `${v}×` }))} />
             </SettingRow>
+            <SettingRow id="convert" label="Converting on the server" hint="Never plays files as they are, or copied into a stream, and never has the server re-encode them. A file this app can't play then opens in another player (mpv or VLC) instead.">
+              <Select<Settings['convert']> label="Converting on the server" value={st.convert} onChange={v => set({ convert: v })}
+                options={[{ value: 'never', label: 'Never' }, { value: 'allow', label: 'When a file needs it' }]} />
+            </SettingRow>
+            <SettingRow id="externalPlayer" label="Other player" hint="Used by Open in external player, for files this app can't play.">
+              <Select<Settings['externalPlayer']> label="Other player" value={st.externalPlayer} onChange={v => set({ externalPlayer: v })}
+                options={[{ value: 'auto', label: 'Whichever is installed' }, { value: 'mpv', label: 'mpv' }, { value: 'vlc', label: 'VLC' }]} />
+            </SettingRow>
+            <SettingRow id="hoverControls" label="Show controls when the mouse is over the video" hint="In a narrow window (half the screen) the controls stay while the mouse is over the video and go when it leaves.">
+              <Select<Settings['hoverControls']> label="Show controls when the mouse is over the video" value={st.hoverControls} onChange={v => set({ hoverControls: v })}
+                options={[{ value: 'narrow', label: 'In narrow windows' }, { value: 'always', label: 'Always' }, { value: 'off', label: 'Never' }]} />
+            </SettingRow>
+            <SettingRow id="controlsHide" label="Hide the controls after" hint="While playing, with the mouse still.">
+              <Select<number> label="Hide the controls after" value={st.controlsHide} onChange={v => set({ controlsHide: v })}
+                options={[{ value: 2, label: '2 seconds' }, { value: 3, label: '3 seconds' }, { value: 5, label: '5 seconds' }, { value: 10, label: '10 seconds' }, { value: 0, label: 'Never' }]} />
+            </SettingRow>
+            <SettingRow id="controlsScale" label="Player controls size" hint="Makes the buttons and bar on the video bigger or smaller, on top of the interface size.">
+              <Select<number> label="Player controls size" value={nearestOf(CONTROL_SIZES, st.controlsScale)} onChange={v => set({ controlsScale: v })}
+                options={CONTROL_SIZES.map(v => ({ value: v, label: `${Math.round(v * 100)}%` }))} />
+            </SettingRow>
+            <SettingRow id="rememberVolume" label="Remember the volume" hint="Start each video at the volume you left the last one at.">
+              <Toggle label="Remember the volume" checked={st.rememberVolume} onChange={v => set({ rememberVolume: v })} />
+            </SettingRow>
+            <SettingRow id="subSize" label="Subtitle size">
+              <Select<Settings['subSize']> label="Subtitle size" value={st.subSize} onChange={v => set({ subSize: v })}
+                options={[{ value: 'small', label: 'Small' }, { value: 'medium', label: 'Medium' }, { value: 'large', label: 'Large' }, { value: 'huge', label: 'Huge' }]} />
+            </SettingRow>
+            <SettingRow id="subColor" label="Subtitle colour">
+              <Select<Settings['subColor']> label="Subtitle colour" value={st.subColor} onChange={v => set({ subColor: v })}
+                options={[{ value: 'white', label: 'White' }, { value: 'yellow', label: 'Yellow' }, { value: 'cyan', label: 'Cyan' }, { value: 'green', label: 'Green' }]} />
+            </SettingRow>
+            <SettingRow id="subBackground" label="Subtitle background">
+              <Select<Settings['subBackground']> label="Subtitle background" value={st.subBackground} onChange={v => set({ subBackground: v })}
+                options={[{ value: 'shadow', label: 'Outline' }, { value: 'dark', label: 'Dark box' }, { value: 'solid', label: 'Black box' }, { value: 'none', label: 'None' }]} />
+            </SettingRow>
           </section>
 
           <section id="set-appearance" className="set-section" data-section="appearance">
@@ -122,6 +160,10 @@ export default function SettingsPage({ api, session, onLogout }: { api: Api; ses
             </SettingRow>
             <SettingRow id="row-seasonal" label="Seasonal banner" hint="In the weeks around Valentine's Day, Halloween and Christmas, the featured banner shows that holiday's movies.">
               <Toggle label="Seasonal banner" checked={st.rows.seasonal} onChange={v => setRow('seasonal', v)} />
+            </SettingRow>
+            <SettingRow id="seasonalStyle" label="Holiday picks" hint="Classics: well-liked, family-friendly favourites (a small list of known classics plus anything in your library that rates well). Everything: any title that matches the holiday.">
+              <Select<Settings['seasonalStyle']> label="Holiday picks" value={st.seasonalStyle} onChange={v => set({ seasonalStyle: v })}
+                options={[{ value: 'classics', label: 'Classics' }, { value: 'all', label: 'Everything' }]} />
             </SettingRow>
             <SettingRow id="row-recommended" label="Recommendations" hint={`Rows like “${w.becauseYouWatched('a title')}”.`}>
               <Toggle label="Recommendations" checked={st.rows.recommended} onChange={v => setRow('recommended', v)} />

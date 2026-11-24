@@ -866,9 +866,61 @@ async function testSeasonal() {
   await waitFor(`document.querySelector('.hero')`, 30000)
   check('seasonal: Settings can turn it off', (await ev(label)) === '')
   await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: halloween.identifier })
+  const thanks = await on('2026-11-24T12:00:00')
   await patchSettings({ rows: { continueWatching: true, nextUp: true, myList: true, recommended: true, recent: true, topRated: true, seasonal: true } })
-  await waitFor(`document.querySelector('.hero')`, 30000); await sleep(500)
+  await waitFor(`document.querySelector('.hero')`, 30000)
+  check('seasonal: in late November it is Thanksgiving or Christmas', await ok(`/Thanksgiving|Christmas/.test(${label})`, 6000), await ev(label))
+  await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: thanks.identifier })
+  const june = await on('2026-06-15T12:00:00')
+  await send('Page.reload'); await waitFor(`document.querySelector('.hero')`, 30000); await sleep(500)
   check('seasonal: outside its weeks it is the usual banner', (await ev(label)) === '')
+  await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: june.identifier })
+}
+
+// =====================================================================================
+/** Player options: not converting, controls on hover in a narrow window, and the controls' size. */
+async function testPlayerOptions() {
+  if (!hasClip) return skip('player options', 'ffmpeg is not installed')
+  await setLook('netflix')
+  // Not converting: a file the player can't play is not handed to the server to convert; another player or a one-time convert is offered.
+  await signInTo(BASE + 5); await reset(BASE + 5)
+  await patchSettings({ convert: 'never', subtitleMode: 'off', autoplayNext: false, skipIntro: 'off', audioLang: '', quality: 'auto', speed: 1 }, false)
+  const mark = logMark()
+  await ev(`location.hash = '#/play/s1e1x1'`); await send('Page.reload')
+  check('options: a file that cannot be played says so', await ok(`document.querySelector('.pc-err') && /converting is turned off/.test(document.querySelector('.pc-err').textContent)`, 30000))
+  check('options: and nothing was converted', !new RegExp(`\\[${BASE + 5}\\] GET [^ ]*master\\.m3u8`).test(logSince(mark)))
+  check('options: and it offers to convert this once', await exists('.pc-err [data-act="convert"]'))
+  await ev(`document.querySelector('.pc-err [data-act="convert"]').click()`)
+  check('options: which then plays it', await ok(`document.querySelector('.player video') && document.querySelector('.player video').currentTime > 1.2`, 30000))
+  await ev(`location.hash = '#/'`); await signInTo(BASE)
+
+  // Hover: in a narrow window the controls stay while the mouse is over the video, and go when it leaves.
+  await patchSettings({ convert: 'allow', hoverControls: 'narrow', controlsHide: 2, touchMode: 'off' }, false)
+  await send('Emulation.setDeviceMetricsOverride', { width: 820, height: 700, deviceScaleFactor: 1, mobile: false })
+  await ev(`location.hash = '#/play/s1e1x1'`); await send('Page.reload'); await waitFor(`document.querySelector('.player')`, 30000)
+  await waitPlaying(1.2)
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 400, y: 300 })
+  await sleep(3500)
+  check('options: in a narrow window the controls stay while the mouse is over the video', !(await ev(`document.querySelector('.player').classList.contains('idle')`)))
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 400, y: -20 }); await sleep(100)
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 400, y: 900 })
+  check('options: and go when the mouse leaves', await ok(`document.querySelector('.player').classList.contains('idle')`, 4000))
+  await send('Emulation.setDeviceMetricsOverride', { width: 1400, height: 800, deviceScaleFactor: 1, mobile: false })
+  await sleep(300)
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 400, y: 300 }); await sleep(3500)
+  check('options: in a wide window they hide as usual', await ok(`document.querySelector('.player').classList.contains('idle')`, 3000))
+  await send('Emulation.clearDeviceMetricsOverride')
+
+  // Size of the controls
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 500, y: 400 }); await sleep(300)
+  const base = (await rectOf('.pc-bar')).h
+  await patchSettings({ controlsScale: 1.5, hoverControls: 'off' }, false)
+  await send('Page.reload'); await waitFor(`document.querySelector('.player')`, 30000); await waitPlaying(1.2)
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 500, y: 410 }); await sleep(300)
+  const bigger = (await rectOf('.pc-bar')).h
+  check('options: the controls can be made bigger', bigger > base * 1.3, `${base?.toFixed(0)} -> ${bigger?.toFixed(0)}`)
+  await patchSettings({ controlsScale: 1 }, false)
+  await ev(`location.hash = '#/'`)
 }
 
 // =====================================================================================
@@ -899,7 +951,7 @@ async function testDirectPlay() {
 }
 
 // =====================================================================================
-const AREAS = (process.env.AREAS ?? 'nav,browse,details,home,search,settings,collapse,profiles,player,robust,touch,scale,seasonal,compat').split(',')
+const AREAS = (process.env.AREAS ?? 'nav,browse,details,home,search,settings,collapse,profiles,player,robust,touch,scale,seasonal,options,compat').split(',')
 const LOOKS = (process.env.LOOKS ?? 'netflix,hulu,hbo,disney').split(',')
 const perLook = { nav: testNav, browse: testBrowse, details: testDetails, home: testHome, search: testSearch, settings: testSettings, collapse: testCollapse }
 
@@ -928,6 +980,8 @@ try {
         await testRobust()
       } else if (area === 'touch') {
         await testTouch()
+      } else if (area === 'options') {
+        await testPlayerOptions()
       } else if (area === 'scale') {
         await testScale()
       } else if (area === 'seasonal') {

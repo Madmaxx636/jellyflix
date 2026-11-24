@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webFrame } from 'electron'
 import type { UpdateInfo } from '../shared/updates'
+import type { PlayerInfo } from '../shared/players'
 import type { ZoomKey } from '../shared/zoom'
 
 // The only door between the page and the main process: what the page may ask about updates.
@@ -7,6 +8,12 @@ contextBridge.exposeInMainWorld('jellyflix', {
   certificates: {
     list: (): Promise<string[]> => ipcRenderer.invoke('certificates:list'),
     forget: (host: string): Promise<string[]> => ipcRenderer.invoke('certificates:forget', host)
+  },
+  players: {
+    /** The other players installed here (mpv, VLC). */
+    list: (): Promise<PlayerInfo[]> => ipcRenderer.invoke('players:list'),
+    /** Opens an address in one of them; resolves to a message when that failed, or null. */
+    open: (url: string, title: string, player: string): Promise<string | null> => ipcRenderer.invoke('players:open', url, title, player)
   },
   view: {
     /** Scales the whole page (1 is normal). */

@@ -8,6 +8,25 @@
 .player video { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
 .player video::cue { background: rgba(0, 0, 0, .72); color: #fff; font-size: 1.5rem; line-height: 1.3; }
 .pc-top, .pc-bar { transition: opacity .3s; }
+/* Settings > Player controls size: everything the player draws on top of the picture grows together */
+.player { --pcs: 1; }
+.pc-top, .pc-bar, .pc-menu, .pc-skip, .pc-next { zoom: var(--pcs); }
+.pc-menu { max-height: calc(60vh / var(--pcs)); }
+
+/* Settings > Subtitles: how the video's own subtitles look */
+.player video::cue { font-size: 1.5rem; color: #fff; background: rgba(0, 0, 0, .72); text-shadow: none; }
+.player[data-subsize="small"] video::cue { font-size: 1.1rem; }
+.player[data-subsize="large"] video::cue { font-size: 2rem; }
+.player[data-subsize="huge"] video::cue { font-size: 2.6rem; }
+.player[data-subcolor="yellow"] video::cue { color: #ffe44d; }
+.player[data-subcolor="cyan"] video::cue { color: #5ce6ff; }
+.player[data-subcolor="green"] video::cue { color: #7dff8a; }
+.player[data-subbg="none"] video::cue { background: transparent; text-shadow: none; }
+.player[data-subbg="shadow"] video::cue { background: transparent; text-shadow: 0 0 4px #000, 0 0 4px #000, 1px 1px 3px #000; }
+.player[data-subbg="solid"] video::cue { background: #000; }
+
+.pc-external { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; pointer-events: auto; }
+.pc-hint { margin: 0; font-size: .9rem; color: #b3b3b3; }
 
 /* ===== top: back button, and the title in the looks that put it there ===== */
 .pc-top { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 14px; padding: 18px var(--pc-pad); background: linear-gradient(rgba(0, 0, 0, .8), transparent); }

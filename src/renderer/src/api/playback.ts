@@ -1,52 +1,60 @@
 // Asking Jellyfin how to play a title. We tell it what this player can decode; it answers with the file to play as it is,
 // or the address of a stream it converts, and which of the two it picked.
+import { detectCapabilities, type Capabilities } from './capabilities'
 import type { MediaSource, Playback, PlaybackInfoResponse, PlaybackOptions } from './types'
 
-/** What the video element in Chromium can play. Anything else the server converts. */
-export const DEVICE_PROFILE = {
-  Name: 'Jellyflix',
-  MaxStreamingBitrate: 120_000_000,
-  MaxStaticBitrate: 100_000_000,
-  MusicStreamingTranscodingBitrate: 192_000,
-  DirectPlayProfiles: [
-    { Container: 'mp4,m4v,mov', Type: 'Video', VideoCodec: 'h264,vp9,av1', AudioCodec: 'aac,mp3,opus,flac' },
-    { Container: 'webm', Type: 'Video', VideoCodec: 'vp8,vp9,av1', AudioCodec: 'vorbis,opus' },
-    { Container: 'mkv', Type: 'Video', VideoCodec: 'h264,vp9,av1', AudioCodec: 'aac,mp3,opus,flac,vorbis' }
-  ],
-  TranscodingProfiles: [
-    { Container: 'ts', Type: 'Video', AudioCodec: 'aac,mp3', VideoCodec: 'h264', Context: 'Streaming', Protocol: 'hls', MaxAudioChannels: '2', MinSegments: '1', BreakOnNonKeyFrames: true }
-  ],
-  CodecProfiles: [
-    {
-      Type: 'Video', Codec: 'h264',
-      Conditions: [
-        { Condition: 'NotEquals', Property: 'IsAnamorphic', Value: 'true', IsRequired: false },
-        { Condition: 'EqualsAny', Property: 'VideoProfile', Value: 'high|main|baseline|constrained baseline', IsRequired: false },
-        { Condition: 'LessThanEqual', Property: 'VideoLevel', Value: '52', IsRequired: false },
-        { Condition: 'LessThanEqual', Property: 'VideoBitDepth', Value: '8', IsRequired: false }
-      ]
-    }
-  ],
-  ContainerProfiles: [],
-  SubtitleProfiles: [
-    { Format: 'vtt', Method: 'External' }, { Format: 'srt', Method: 'External' }, { Format: 'subrip', Method: 'External' },
-    { Format: 'ass', Method: 'External' }, { Format: 'ssa', Method: 'External' },
-    { Format: 'pgssub', Method: 'Encode' }, { Format: 'dvdsub', Method: 'Encode' }, { Format: 'dvbsub', Method: 'Encode' }
-  ]
+const list = (...v: string[]) => v.join(',')
+const some = (have: string[], want: string[]) => want.filter(c => have.includes(c))
+
+/** The device profile: what the video element here can play as it is. Anything else the server converts, if that is allowed. */
+export function deviceProfile(caps: Capabilities = detectCapabilities()) {
+  const v = (...want: string[]) => list(...some(caps.video, want))
+  const a = (...want: string[]) => list(...some(caps.audio, want))
+  return {
+    Name: 'Jellyflix',
+    MaxStreamingBitrate: 120_000_000,
+    MaxStaticBitrate: 100_000_000,
+    MusicStreamingTranscodingBitrate: 192_000,
+    DirectPlayProfiles: [
+      { Container: 'mp4,m4v,mov', Type: 'Video', VideoCodec: v('h264', 'hevc', 'vp9', 'av1'), AudioCodec: a('aac', 'mp3', 'opus', 'flac', 'ac3', 'eac3') },
+      { Container: 'webm', Type: 'Video', VideoCodec: v('vp8', 'vp9', 'av1'), AudioCodec: a('vorbis', 'opus') },
+      { Container: 'mkv', Type: 'Video', VideoCodec: v('h264', 'hevc', 'vp9', 'av1'), AudioCodec: a('aac', 'mp3', 'opus', 'flac', 'vorbis', 'ac3', 'eac3') }
+    ],
+    TranscodingProfiles: [
+      { Container: 'ts', Type: 'Video', AudioCodec: a('aac', 'mp3'), VideoCodec: v('h264'), Context: 'Streaming', Protocol: 'hls', MaxAudioChannels: '2', MinSegments: '1', BreakOnNonKeyFrames: true }
+    ],
+    CodecProfiles: [
+      {
+        Type: 'Video', Codec: 'h264',
+        Conditions: [
+          { Condition: 'NotEquals', Property: 'IsAnamorphic', Value: 'true', IsRequired: false },
+          { Condition: 'EqualsAny', Property: 'VideoProfile', Value: 'high|main|baseline|constrained baseline', IsRequired: false },
+          { Condition: 'LessThanEqual', Property: 'VideoLevel', Value: '52', IsRequired: false },
+          { Condition: 'LessThanEqual', Property: 'VideoBitDepth', Value: '8', IsRequired: false }
+        ]
+      }
+    ],
+    ContainerProfiles: [],
+    SubtitleProfiles: [
+      { Format: 'vtt', Method: 'External' }, { Format: 'srt', Method: 'External' }, { Format: 'subrip', Method: 'External' },
+      { Format: 'ass', Method: 'External' }, { Format: 'ssa', Method: 'External' },
+      { Format: 'pgssub', Method: 'Encode' }, { Format: 'dvdsub', Method: 'Encode' }, { Format: 'dvbsub', Method: 'Encode' }
+    ]
+  }
 }
 
 /** The body of the PlaybackInfo request. */
-export function playbackRequest(userId: string, o: PlaybackOptions) {
+export function playbackRequest(userId: string, o: PlaybackOptions, caps?: Capabilities) {
   const direct = o.direct !== false
   return {
     UserId: userId,
-    DeviceProfile: DEVICE_PROFILE,
+    DeviceProfile: deviceProfile(caps),
     ...(o.bitrate ? { MaxStreamingBitrate: o.bitrate + 192_000 } : {}),
     ...(o.audio != null ? { AudioStreamIndex: o.audio } : {}),
     ...(o.subtitle != null ? { SubtitleStreamIndex: o.subtitle } : {}),
     EnableDirectPlay: direct && !o.bitrate && o.subtitle == null,
     EnableDirectStream: direct,
-    EnableTranscoding: true,
+    EnableTranscoding: o.convert !== false,
     AllowVideoStreamCopy: true,
     AllowAudioStreamCopy: true,
     AutoOpenLiveStream: false

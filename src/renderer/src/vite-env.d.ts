@@ -7,6 +7,10 @@ interface Window {
       list: () => Promise<string[]>
       forget: (host: string) => Promise<string[]>
     }
+    players: {
+      list: () => Promise<import('../../shared/players').PlayerInfo[]>
+      open: (url: string, title: string, player: string) => Promise<string | null>
+    }
     view: {
       setScale: (factor: number) => void
       onZoomKey: (listener: (key: import('../../shared/zoom').ZoomKey) => void) => () => void

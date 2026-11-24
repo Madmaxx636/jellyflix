@@ -18,6 +18,23 @@ export interface Settings {
   touchMode: 'auto' | 'on' | 'off'
   /** How big everything is: 1 is normal (see shared/zoom.ts for the steps). */
   scale: number
+  /** How big the player's controls are, on top of the interface size: 1 is normal. */
+  controlsScale: number
+  /** Show the controls while the mouse is over the player: in narrow windows (half a screen), always, or never. */
+  hoverControls: 'narrow' | 'always' | 'off'
+  /** Seconds before the controls hide while playing; 0 keeps them showing. */
+  controlsHide: number
+  /** Whether the volume is remembered from one video to the next. */
+  rememberVolume: boolean
+  subSize: 'small' | 'medium' | 'large' | 'huge'
+  subColor: 'white' | 'yellow' | 'cyan' | 'green'
+  subBackground: 'shadow' | 'dark' | 'solid' | 'none'
+  /** What to do with a file this app can't play as it is: 'never' convert it on the server (offer another player instead), or 'allow'. */
+  convert: 'never' | 'allow'
+  /** The player used for "Open in external player". */
+  externalPlayer: 'auto' | 'mpv' | 'vlc'
+  /** Holiday banner: 'classics' picks well-liked, family-friendly favourites; 'all' takes anything that matches. */
+  seasonalStyle: 'classics' | 'all'
   rows: { continueWatching: boolean; nextUp: boolean; myList: boolean; recommended: boolean; recent: boolean; topRated: boolean; seasonal: boolean }
   genreRows: number
 }
@@ -25,6 +42,8 @@ export interface Settings {
 export const DEFAULTS: Settings = {
   autoplayNext: true, skipIntro: 'button', audioLang: '', subtitleMode: 'foreign', subtitleLang: 'eng', quality: 'auto', speed: 1,
   cardSize: 'medium', showHero: true, rotateHero: true, reduceMotion: false, touchMode: 'auto', scale: 1,
+  controlsScale: 1, hoverControls: 'narrow', controlsHide: 3, rememberVolume: true,
+  subSize: 'medium', subColor: 'white', subBackground: 'shadow', convert: 'never', externalPlayer: 'auto', seasonalStyle: 'classics',
   rows: { continueWatching: true, nextUp: true, myList: true, recommended: true, recent: true, topRated: true, seasonal: true },
   genreRows: 6
 }
@@ -84,9 +103,16 @@ const CHOICES: { [K in keyof Settings]?: readonly unknown[] } = {
   subtitleMode: ['off', 'foreign', 'always'],
   quality: ['auto', '1080', '720', '480'],
   cardSize: ['small', 'medium', 'large'],
-  touchMode: ['auto', 'on', 'off']
+  touchMode: ['auto', 'on', 'off'],
+  hoverControls: ['narrow', 'always', 'off'],
+  subSize: ['small', 'medium', 'large', 'huge'],
+  subColor: ['white', 'yellow', 'cyan', 'green'],
+  subBackground: ['shadow', 'dark', 'solid', 'none'],
+  convert: ['never', 'allow'],
+  externalPlayer: ['auto', 'mpv', 'vlc'],
+  seasonalStyle: ['classics', 'all']
 }
-const RANGES: { [K in keyof Settings]?: readonly [number, number] } = { speed: [0.25, 4], genreRows: [0, 12], scale: [0.5, 3] }
+const RANGES: { [K in keyof Settings]?: readonly [number, number] } = { speed: [0.25, 4], genreRows: [0, 12], scale: [0.5, 3], controlsScale: [0.6, 2.5], controlsHide: [0, 30] }
 
 function usable(key: keyof Settings, value: unknown): boolean {
   if (typeof value !== typeof DEFAULTS[key]) return false

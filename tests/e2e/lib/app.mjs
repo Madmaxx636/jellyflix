@@ -27,7 +27,7 @@ export async function signInTo(port) {
 
 /** Changes saved settings directly (and reloads so the app reads them). */
 export async function patchSettings(patch, reload = true) {
-  await ev(`(()=>{const cur=JSON.parse(localStorage.getItem('jellyflix.settings')||'{}');localStorage.setItem('jellyflix.settings',JSON.stringify({...cur,...${J(patch)}}))})()`)
+  await ev(`(()=>{const cur=JSON.parse(localStorage.getItem('jellyflix.settings')||'{}');localStorage.setItem('jellyflix.settings',JSON.stringify({...cur,convert:'allow',...${J(patch)}}))})()`)
   if (reload) { await send('Page.reload'); await waitFor(`document.querySelector('.nav, .player, .login')`, 30000); await sleep(400) }
 }
 

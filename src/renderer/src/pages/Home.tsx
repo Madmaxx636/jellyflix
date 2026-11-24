@@ -5,13 +5,18 @@ import { useLoad } from '../hooks/useLoad'
 import { useSettings } from '../settings'
 import { useTheme, type Words } from '../theme'
 import { isBrowsable } from '../util/library'
-import { seasonFor, type Season } from '../util/seasons'
+import { seasonsFor, type Season } from '../util/seasons'
 import { seedFrom, shuffled } from '../util/shuffle'
-import { seasonalMovies } from '../api/seasonal'
+import { holidayPicks, type Picks } from '../api/seasonal'
 import Hero from '../components/Hero'
 import Row from '../components/Row'
 import { ErrorBox, RowsSkeleton } from '../components/Status'
 import { LibraryTile } from '../components/Tiles'
+
+const NO_PICKS: Picks = { items: [], labels: {} }
+/** Finding the holiday picks the first time takes a few dozen requests; Home doesn't wait longer than this for them (they are kept for next time). */
+const HOLIDAY_WAIT_MS = 4000
+const withinMs = <T,>(p: Promise<T>, ms: number, fallback: T) => Promise.race([p, new Promise<T>(res => setTimeout(() => res(fallback), ms))])
 
 const GENRE_ROWS = 12
 const HERO_SLIDES = 5
@@ -19,7 +24,7 @@ const HERO_SLIDES = 5
 interface HomeData {
   resume: Item[]; nextUp: Item[]; movies: Item[]; shows: Item[]; favs: Item[]; top: Item[]
   recs: Recommendation[]; views: View[]; genreRows: { title: string; items: Item[] }[]
-  season: Season | null; seasonal: Item[]
+  seasons: Season[]; holiday: Picks
 }
 interface RowDef { key: string; title: string; items: Item[]; ranked?: boolean; to?: string }
 
@@ -30,11 +35,11 @@ function recTitle(r: Recommendation, w: Words): string {
   return w.becauseYouWatched(name)
 }
 
-async function loadHome(api: Api): Promise<HomeData> {
+async function loadHome(api: Api, style: 'classics' | 'all', holidays: boolean): Promise<HomeData> {
   const safe = <T,>(p: Promise<T>, fallback: T) => p.catch(() => fallback)
   // Continue Watching is the canary: if even that fails, it's a sign-in or connection problem and worth showing.
-  const season = seasonFor(new Date())
-  const [resume, nextUp, movies, shows, genres, favs, top, recs, views, seasonal] = await Promise.all([
+  const seasons = holidays ? seasonsFor(new Date()) : []
+  const [resume, nextUp, movies, shows, genres, favs, top, recs, views, holiday] = await Promise.all([
     api.resume(),
     safe(api.nextUp(), [] as Item[]),
     safe(api.latest('Movie'), [] as Item[]),
@@ -44,30 +49,30 @@ async function loadHome(api: Api): Promise<HomeData> {
     safe(api.items({ types: ['Movie', 'Series'], sortBy: 'CommunityRating', sortOrder: 'Descending', limit: 10 }).then(p => p.items), [] as Item[]),
     safe(api.recommendations(), [] as Recommendation[]),
     safe(api.views(), [] as View[]),
-    season ? safe(seasonalMovies(api, season), [] as Item[]) : Promise.resolve([] as Item[])
+    seasons.length ? safe(withinMs(holidayPicks(api, seasons, style), HOLIDAY_WAIT_MS, NO_PICKS), NO_PICKS) : Promise.resolve(NO_PICKS)
   ])
   const genreRows = await Promise.all(genres.slice(0, GENRE_ROWS).map(async g => ({ title: g, items: await safe(api.byGenre(g), [] as Item[]) })))
-  return { resume, nextUp, movies, shows, favs, top, recs, views: views.filter(isBrowsable), genreRows, season, seasonal }
+  return { resume, nextUp, movies, shows, favs, top, recs, views: views.filter(isBrowsable), genreRows, seasons, holiday }
 }
 
-const worthFeaturing = (it: Item) => !!it.BackdropImageTags?.length && !!it.Overview
+const worthFeaturing = (it: Item) => !!(it.BackdropImageTags?.length || it.ParentBackdropImageTags?.length) && !!it.Overview
 const MIN_SEASONAL_SLIDES = 2
 
 /**
  * Titles worth featuring (they have a backdrop and a description), in an order that stays the same for one visit to the
  * page. In a holiday's weeks the banner shows that holiday's movies instead, when the library has at least two to show.
  */
-function featured(d: HomeData, seed: string, seasonal: boolean): { items: Item[]; season: Season | null } {
-  if (seasonal && d.season) {
-    const holiday = d.seasonal.filter(worthFeaturing)
-    if (holiday.length >= MIN_SEASONAL_SLIDES) return { items: shuffled(holiday, seedFrom(seed)).slice(0, HERO_SLIDES), season: d.season }
+function featured(d: HomeData, seed: string, seasonal: boolean): { items: Item[]; labels: Record<string, string> } {
+  if (seasonal) {
+    const holiday = d.holiday.items.filter(worthFeaturing)
+    if (holiday.length >= MIN_SEASONAL_SLIDES) return { items: shuffled(holiday, seedFrom(seed)).slice(0, HERO_SLIDES), labels: d.holiday.labels }
   }
   const seen = new Set<string>()
   const pool: Item[] = []
   for (const it of [...d.movies, ...d.shows, ...d.top, ...d.recs.flatMap(r => r.Items)]) {
     if (!seen.has(it.Id) && worthFeaturing(it)) { seen.add(it.Id); pool.push(it) }
   }
-  return { items: shuffled(pool, seedFrom(seed)).slice(0, HERO_SLIDES), season: null }
+  return { items: shuffled(pool, seedFrom(seed)).slice(0, HERO_SLIDES), labels: {} }
 }
 
 export default function Home({ api, session }: { api: Api; session: Session }) {
@@ -75,8 +80,8 @@ export default function Home({ api, session }: { api: Api; session: Session }) {
   const { settings: st } = useSettings()
   const { key: visit } = useLocation()
   const w = theme.words
-  const { data: d, error, reload } = useLoad(api, 'home', loadHome, { remember: true })
-  const hero = useMemo(() => (d ? featured(d, visit, st.rows.seasonal) : { items: [], season: null }), [d, visit, st.rows.seasonal])
+  const { data: d, error, reload } = useLoad(api, `home|${st.seasonalStyle}|${st.rows.seasonal}`, a => loadHome(a, st.seasonalStyle, st.rows.seasonal), { remember: true })
+  const hero = useMemo(() => (d ? featured(d, visit, st.rows.seasonal) : { items: [], labels: {} }), [d, visit, st.rows.seasonal])
   const heroItems = hero.items
 
   if (error) return <div className="page"><ErrorBox error={error} what="your library" onRetry={reload} /></div>
@@ -100,7 +105,7 @@ export default function Home({ api, session }: { api: Api; session: Session }) {
   const anything = rows.some(r => r.items.length)
   return (
     <>
-      {hasHero && <Hero items={heroItems} api={api} label={hero.season?.title} />}
+      {hasHero && <Hero items={heroItems} api={api} labels={hero.labels} />}
       {theme.brandTiles && (
         <div className={`brand-row ${hasHero ? '' : 'nohero'}`} data-brands>
           {d.views.slice(0, 5).map(v => <LibraryTile key={v.Id} api={api} view={v} />)}

@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.5.0 (2026-11-24)
+
+### Added
+- Not converting. Settings > Playback > Converting on the server is set to Never: the app asks Jellyfin to play files as they
+  are or copy them into a stream, and never to re-encode. A file the app can't play shows what is inside it, with Open in mpv
+  / Open in VLC (the file itself is handed over, nothing converted) and a button to convert it on the server this once.
+- The app asks its video engine which codecs it can decode (HEVC, AV1, AC3 and so on) and tells Jellyfin, instead of a fixed
+  list, so a computer or an engine build that can play more gets direct play for more files.
+- Holiday banner picks: it now uses a list of well-known classics (movies, and holiday episodes such as The Twilight Zone's
+  "The Night of the Meek") found by name in the library, then whatever else matches by tag or name, but only titles that rate
+  well and aren't adult, and no horror outside Halloween. Thanksgiving is added (early November to the day itself), mixed with
+  Christmas from mid November. Each slide says which holiday it is for. Settings > Home screen can switch to "Everything".
+- Player: in a narrow window (half a screen) the controls stay while the mouse is over the video and go when it leaves (Settings
+  > Playback can make that always or never); the controls' size can be changed (80% to 200%); how long they stay can be set;
+  the volume can be forgotten between videos; subtitle size, colour and background can be chosen.
+
+### Fixed
+- The "Waiting for the server to convert the video" message came up when the server was only copying the video into a stream
+  or the file was playing as it is. It now says what the server is actually doing.
+
 ## 0.4.0 (2026-11-23)
 
 ### Added

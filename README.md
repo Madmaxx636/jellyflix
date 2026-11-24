@@ -98,11 +98,20 @@ Newer routes (`/UserViews`, `/UserItems/Resume`, `/Items/Latest`, `/Items/{id}`,
   "Trickplay" in the library settings).
 - The window can be as small as 420 px wide, so it fits half a screen; the player and the pages rearrange themselves.
 - Skipping intros and credits needs the markers Jellyfin keeps as media segments (10.10 and later).
-- Playback: the app tells Jellyfin what this player can decode (MP4, WebM and MKV with H.264, VP9 or AV1 video and AAC, MP3,
-  Opus, FLAC or Vorbis audio). A file that fits is played as it is (seeking is instant); anything else, such as HEVC video or
-  AC3 or DTS audio, is converted by the server into an HLS stream, copying whatever it can. If a file turns out not to play,
-  the app asks the server to convert it. Choosing another audio track, a picture subtitle or a quality asks for a new
-  stream and carries on from the same spot.
+- Playback: the app asks its own video engine which codecs it can decode and tells Jellyfin, so a file that fits is played as
+  it is (seeking is instant), and what fits depends on the computer (HEVC and AV1 usually work where the hardware or system
+  supports them). By default the app never has the server convert (re-encode) anything: a file it can't play is offered to
+  another player on the computer (mpv or VLC, if installed) as the file itself, or can be converted once, from the message.
+  Settings > Playback turns converting back on for files that need it, in which case the server makes an HLS stream, copying
+  whatever it can. Choosing another audio track, a picture subtitle or a quality asks for a new stream and carries on from
+  the same spot. (Only checked against test servers so far, not a real library: whether a real server will copy a stream
+  into HLS when told not to convert is worth watching.)
+- Formats the built-in engine can't decode, such as AC3, E-AC3, DTS and TrueHD audio in most builds: either open the file in
+  mpv or VLC, or swap the engine's decoder library for a fuller one. The app looks at what the engine can play every time it
+  starts, so a fuller library is picked up with no change to the app: replace `ffmpeg.dll` (Windows), `libffmpeg.so` (Linux)
+  or `libffmpeg.dylib` (macOS, inside the app's Frameworks folder) with a build of Electron's decoder that includes the extra
+  codecs. This project doesn't ship one: such builds carry patent and licence conditions of their own, and have to match the
+  Electron version (see the version in Settings > About).
 - Text subtitles are shown by the player; picture subtitles (PGS, VobSub) are burned in by the server.
 - A server with a certificate it made itself: the first time, the app shows the certificate and asks whether to trust
   that server. The choice is remembered for that exact certificate (a changed one is asked about again), and Settings > About

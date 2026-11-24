@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url'
 import { DEFAULT_WINDOW, MIN_WINDOW } from './geometry'
 import { addEditingContextMenu, allowServerResponses, guardNavigation, restrictPermissions } from './security'
 import { handleCertificates } from './certificates'
+import { handleExternalPlayers } from './externalPlayers'
 import { startUpdates } from './updater'
 import { restoreWindowState, trackWindowState } from './windowState'
 import { zoomKeyOf } from '../shared/zoom'
@@ -102,6 +103,7 @@ if (!HIDDEN && !app.requestSingleInstanceLock()) {
     createWindow()
     startUpdates(isAppUrl, HIDDEN)
     handleCertificates(isAppUrl, () => BrowserWindow.getAllWindows()[0])
+    handleExternalPlayers(isAppUrl)
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
   })
 

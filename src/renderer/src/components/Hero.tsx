@@ -4,7 +4,7 @@ import type { Api, Item } from '../api/jellyfin'
 import { usePageVisible } from '../hooks/usePageVisible'
 import { useSettings } from '../settings'
 import { useTheme } from '../theme'
-import { isPlayable, playItem } from '../util/play'
+import { isPlayable, openTarget, playItem } from '../util/play'
 import { ticksToMin } from '../util/time'
 import Icon from './Icon'
 import ListButton from './ListButton'
@@ -12,7 +12,7 @@ import ListButton from './ListButton'
 const ROTATE_EVERY_MS = 8000
 
 /** The featured banner: a single title, or a rotating carousel of up to five, depending on the look. */
-export default function Hero({ items, api, label }: { items: Item[]; api: Api; label?: string }) {
+export default function Hero({ items, api, labels }: { items: Item[]; api: Api; /** Above a title's name: which holiday it is for, by title id. */ labels?: Record<string, string> }) {
   const { theme } = useTheme()
   const { settings } = useSettings()
   const visible = usePageVisible()
@@ -43,7 +43,7 @@ export default function Hero({ items, api, label }: { items: Item[]; api: Api; l
         const dx = e.clientX - from.x
         if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(e.clientY - from.y) * 1.5) setRequested((index + (dx < 0 ? 1 : slides.length - 1)) % slides.length)
       }}>
-      <Slide item={item} api={api} label={label} />
+      <Slide item={item} api={api} label={labels?.[item.Id]} />
       {slides.length > 1 && (
         <>
           <div className="hero-dots">
@@ -67,8 +67,9 @@ function Slide({ item, api, label }: { item: Item; api: Api; label?: string }) {
       <div className="hero-fade" />
       <div className="hero-body" key={`b${item.Id}`}>
         {label && <p className="hero-season">{label}</p>}
-        <h1>{item.Name}</h1>
+        <h1>{item.Type === 'Episode' ? (item.SeriesName ?? item.Name) : item.Name}</h1>
         <p className="meta">
+          {item.Type === 'Episode' && <>{`S${item.ParentIndexNumber ?? ''} E${item.IndexNumber ?? ''} · ${item.Name} · `}</>}
           {item.ProductionYear} {item.OfficialRating && <span className="badge">{item.OfficialRating}</span>}
           {item.Type === 'Movie' && item.RunTimeTicks ? ` ${ticksToMin(item.RunTimeTicks)} min` : ''}
           {item.Genres?.length ? ` · ${item.Genres.slice(0, 2).join(' · ')}` : ''}
@@ -76,7 +77,7 @@ function Slide({ item, api, label }: { item: Item; api: Api; label?: string }) {
         <p className="overview">{item.Overview}</p>
         <div className="actions">
           {isPlayable(item) && <button className="btn primary" data-act="play" onClick={() => playItem(api, item, nav)}><Icon name="play" size={18} />{theme.words.play}</button>}
-          <button className="btn" data-act="info" onClick={() => nav(`/title/${encodeURIComponent(item.Id)}`)}><Icon name="info" size={18} />More Info</button>
+          <button className="btn" data-act="info" onClick={() => nav(`/title/${encodeURIComponent(openTarget(item))}`)}><Icon name="info" size={18} />More Info</button>
           <ListButton api={api} item={item} />
         </div>
       </div>

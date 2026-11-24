@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import type { Api, Item, Playback, PlaybackOptions, Segment } from '../api/jellyfin'
+import { NeedsConversion } from '../api/conversion'
 import { useLoad } from '../hooks/useLoad'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { useSettings } from '../settings'
 import { pickAudio, pickSubtitle } from '../settingsModel'
 import { useTheme } from '../theme'
 import Icon from '../components/Icon'
 import Chrome from '../components/player/Chrome'
+import ExternalPlayerButtons from '../components/player/ExternalPlayerButtons'
 import { QUALITIES, SKIPPABLE, trackLabel, type Menu, type OpenMenu } from '../components/player/constants'
 import NextEpisodeCard from '../components/player/NextEpisodeCard'
 import PlayerMenus from '../components/player/PlayerMenus'
@@ -19,13 +22,17 @@ import { useVideoControls } from '../components/player/useVideoControls'
 const NO_SEGMENTS: Segment[] = []
 const NO_EPISODES: Item[] = []
 const VOLUME_KEY = 'jellyflix.volume'
-const IDLE_AFTER_MS = 3000
+const LEAVE_HIDE_MS = 700 // with the mouse out of the window the controls go quickly
+const NARROW = '(max-width: 900px)'
 const PAUSE_PANEL_AFTER_MS = 3000
 const SLOW_AFTER_MS = 6000
 const SKIP_SECONDS = 10
 const DOUBLE_TAP_MS = 300
 
-function storedVolume(): number {
+const WAITING = { DirectPlay: 'Waiting for the server…', DirectStream: 'Waiting for the server to prepare the video…', Transcode: 'Waiting for the server to convert the video…' } as const
+
+function storedVolume(remember: boolean): number {
+  if (!remember) return 1
   try {
     const v = parseFloat(localStorage.getItem(VOLUME_KEY) ?? '')
     return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1
@@ -38,22 +45,25 @@ function storedVolume(): number {
  */
 export default function Player({ api }: { api: Api }) {
   const { id = '' } = useParams()
+  const { settings } = useSettings()
   const frame = useRef<HTMLElement>(null)
-  const loaded = useLoad(api, id, async a => {
-    const [item, plan] = await Promise.all([a.item(id), a.playback(id)])
+  const [convertOnce, setConvertOnce] = useState(false) // "convert on the server this time", for a file that can't be played as it is
+  const convert = settings.convert === 'allow' || convertOnce
+  const loaded = useLoad(api, `${id}|${convert}`, async a => {
+    const [item, plan] = await Promise.all([a.item(id), a.playback(id, { convert })])
     return { item, plan }
   })
   return (
     <main ref={frame} className="player-frame">
       {loaded.data
-        ? <Playing key={id} api={api} id={id} frame={frame} item={loaded.data.item} first={loaded.data.plan} onRetry={loaded.reload} />
-        : <Waiting error={loaded.error} onRetry={loaded.reload} />}
+        ? <Playing key={id} api={api} id={id} frame={frame} item={loaded.data.item} first={loaded.data.plan} convert={convert} onConvert={() => setConvertOnce(true)} onRetry={loaded.reload} />
+        : <Waiting error={loaded.error} onRetry={loaded.reload} onConvert={() => setConvertOnce(true)} title={id} />}
     </main>
   )
 }
 
 /** What shows while the title is being prepared, or when it couldn't be. */
-function Waiting({ error, onRetry }: { error?: Error; onRetry: () => void }) {
+function Waiting({ error, onRetry, onConvert, title }: { error?: Error; onRetry: () => void; onConvert: () => void; title: string }) {
   const nav = useNavigate()
   const { theme } = useTheme()
   useEffect(() => {
@@ -67,18 +77,32 @@ function Waiting({ error, onRetry }: { error?: Error; onRetry: () => void }) {
         <button className="pc-btn" data-act="back" onClick={() => nav(-1)} aria-label={theme.words.player.back}><Icon name="left" size={22} /></button>
       </div>
       {error
-        ? <div className="pc-err" role="alert"><p>{error.message}</p><button className="btn" onClick={onRetry}>Try again</button></div>
+        ? (
+          <div className="pc-err" role="alert">
+            <p>{error.message}</p>
+            {error instanceof NeedsConversion
+              ? (
+                <>
+                  <ExternalPlayerButtons fileUrl={error.fileUrl} title={title} />
+                  <button className="btn" data-act="convert" onClick={onConvert}>Convert it on the server this time</button>
+                </>
+              )
+              : <button className="btn" onClick={onRetry}>Try again</button>}
+          </div>
+        )
         : <div className="pc-loading" role="status">Loading…</div>}
     </div>
   )
 }
 
-function Playing({ api, id, frame, item, first, onRetry }: {
+function Playing({ api, id, frame, item, first, convert, onConvert, onRetry }: {
   api: Api
   id: string
   frame: RefObject<HTMLElement | null>
   item: Item
   first: Playback
+  convert: boolean
+  onConvert: () => void
   onRetry: () => void
 }) {
   const nav = useNavigate()
@@ -116,11 +140,13 @@ function Playing({ api, id, frame, item, first, onRetry }: {
   const [pausedAWhile, setPausedAWhile] = useState(false)
   const [waiting, setWaiting] = useState(true)
   const [ended, setEnded] = useState(false)
-  const [volume, setVolume] = useState(storedVolume)
+  const [volume, setVolume] = useState(() => storedVolume(settings.rememberVolume))
   const [muted, setMuted] = useState(false)
   const [menu, setMenu] = useState<Menu>(null)
   const [anchor, setAnchor] = useState<number | null>(null) // where the open pop-up points: the middle of the button it came from
   const [idle, setIdle] = useState(false)
+  const [hovering, setHovering] = useState(false) // the mouse is over the player
+  const narrow = useMediaQuery(NARROW)
   const [nextDismissed, setNextDismissed] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
   const [failure, setFailure] = useState('')
@@ -139,19 +165,19 @@ function Playing({ api, id, frame, item, first, onRetry }: {
   // Picture-based subtitles (PGS, VobSub) can't be shown by the video element, so the server burns them in.
   const burn = subStream && !subStream.IsTextSubtitleStream ? subStream.Index : null
   const bitrate = QUALITIES.find(q => q.id === quality)?.bps ?? 0
-  const wanted: PlaybackOptions = { audio: audio ?? undefined, subtitle: burn ?? undefined, bitrate: bitrate || undefined, direct }
+  const wanted: PlaybackOptions = { audio: audio ?? undefined, subtitle: burn ?? undefined, bitrate: bitrate || undefined, direct, convert }
   const defaultAudio = first.source.DefaultAudioStreamIndex
   useEffect(() => {
     const had = plan.asked
-    if ((wanted.audio ?? defaultAudio) === (had.audio ?? defaultAudio) && wanted.subtitle === had.subtitle && wanted.bitrate === had.bitrate && wanted.direct === (had.direct !== false)) return
+    if ((wanted.audio ?? defaultAudio) === (had.audio ?? defaultAudio) && wanted.subtitle === had.subtitle && wanted.bitrate === had.bitrate && wanted.direct === (had.direct !== false) && convert === (had.convert !== false)) return
     const ctl = new AbortController()
     api.with(ctl.signal).playback(id, wanted).then(setPlan, e => { if (!ctl.signal.aborted) setFailure((e as Error).message) })
     return () => ctl.abort()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `wanted` is made from the four values listed
-  }, [api, id, audio, burn, bitrate, direct, plan.asked, defaultAudio])
+  }, [api, id, audio, burn, bitrate, direct, convert, plan.asked, defaultAudio])
   useStream({
     video, url: plan.url, kind: plan.kind, initialTime, speed, onFatal: setFailure,
-    onFileFailed: () => { if (direct) setDirect(false); else setFailure("This video couldn't be played.") }
+    onFileFailed: () => { if (direct && convert) setDirect(false); else setFailure(convert ? "This video couldn't be played." : "This video couldn't be played here as it is, and converting is turned off.") }
   })
   usePlaybackReport(api, id, plan, video, position)
 
@@ -161,6 +187,7 @@ function Playing({ api, id, frame, item, first, onRetry }: {
     const [width, info] = sets.reduce((best, cur) => (Math.abs(Number(cur[0]) - 320) < Math.abs(Number(best[0]) - 320) ? cur : best))
     return { info, tile: (index: number) => api.trickplayUrl(id, plan.source.Id, Number(width), index) }
   }, [item.Trickplay, plan.source.Id, api, id])
+  const fileUrl = api.fileUrl(id, plan.source)
   const heading = item.Type === 'Episode'
     ? { name: item.SeriesName ?? item.Name, detail: say.episodeLine(item.ParentIndexNumber, item.IndexNumber, item.Name) }
     : { name: item.Name, detail: '' }
@@ -215,18 +242,20 @@ function Playing({ api, id, frame, item, first, onRetry }: {
   useEffect(() => { if (video.current) video.current.playbackRate = speed }, [speed, video])
   useEffect(() => {
     if (video.current) { video.current.volume = volume; video.current.muted = muted }
-    try { localStorage.setItem(VOLUME_KEY, String(volume)) } catch { /* storage unavailable */ }
-  }, [volume, muted, video])
+    if (settings.rememberVolume) try { localStorage.setItem(VOLUME_KEY, String(volume)) } catch { /* storage unavailable */ }
+  }, [volume, muted, video, settings.rememberVolume])
 
   // ---- helpers ----
   const total = duration || (plan.source.RunTimeTicks ?? 0) / 1e7
   const { seek, bump, toggle } = useVideoControls(video)
   const toggleFullscreen = () => { if (document.fullscreenElement) void document.exitFullscreen(); else void frame.current?.requestFullscreen() }
-  const armIdle = useCallback(() => {
+  const hideAfter = settings.controlsHide
+  const armIdle = useCallback((after = hideAfter * 1000) => {
     clearTimeout(idleTimer.current)
-    idleTimer.current = window.setTimeout(() => setIdle(true), IDLE_AFTER_MS)
-  }, [])
+    if (after > 0) idleTimer.current = window.setTimeout(() => setIdle(true), after) // 0: the controls stay
+  }, [hideAfter])
   const wake = useCallback(() => { setIdle(false); armIdle() }, [armIdle])
+  const hoverShows = settings.hoverControls === 'always' || (settings.hoverControls === 'narrow' && narrow)
   useEffect(() => { armIdle(); return () => clearTimeout(idleTimer.current) }, [armIdle])
 
   const pick = (m: Menu) => setMenu(cur => (cur === m ? null : m))
@@ -322,8 +351,11 @@ function Playing({ api, id, frame, item, first, onRetry }: {
   }
 
   return (
-    <div className={`player ${playing ? 'is-playing' : 'is-paused'} ${idle && playing && !menu ? 'idle' : ''} ${menu ? 'menu-open' : ''}`}
-      data-look={theme.id}
+    <div className={`player ${playing ? 'is-playing' : 'is-paused'} ${idle && playing && !menu && !(hoverShows && hovering) ? 'idle' : ''} ${menu ? 'menu-open' : ''}`}
+      data-look={theme.id} data-subsize={settings.subSize} data-subcolor={settings.subColor} data-subbg={settings.subBackground}
+      style={{ ['--pcs' as string]: settings.controlsScale }}
+      onPointerEnter={e => { if (e.pointerType === 'mouse') { setHovering(true); wake() } }}
+      onPointerLeave={e => { if (e.pointerType === 'mouse') { setHovering(false); armIdle(LEAVE_HIDE_MS) } }}
       onPointerMove={e => { if (e.pointerType !== 'touch') wake() }}
       onPointerDown={e => { if (!(e.pointerType === 'touch' && e.target === video.current)) wake() }}>
       {/* oxlint-disable-next-line jsx-a11y/media-has-caption -- subtitle tracks are chosen from the player's own menu and added below */}
@@ -356,12 +388,14 @@ function Playing({ api, id, frame, item, first, onRetry }: {
       {waiting && !failure && (
         <div className="pc-buffering" role="status">
           <div className="pc-spinner" aria-label="Buffering" />
-          {slow && <p>{plan.method === 'DirectPlay' ? 'Waiting for the server…' : 'Waiting for the server to convert the video…'}</p>}
+          {slow && <p>{WAITING[plan.method]}</p>}
         </div>
       )}
       {failure && (
         <div className="pc-err" role="alert">
           <p>{failure}</p>
+          {!convert && <ExternalPlayerButtons fileUrl={fileUrl} title={title} />}
+          {!convert && <button className="btn" data-act="convert" onClick={onConvert}>Convert it on the server this time</button>}
           <button className="btn" onClick={onRetry}>Try again</button>
         </div>
       )}

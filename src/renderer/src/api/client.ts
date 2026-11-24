@@ -3,6 +3,7 @@ import { markFetched } from '../userdata'
 import { HttpError, req } from './http'
 import { deviceId } from './session'
 import { planPlayback, playbackRequest } from './playback'
+import { NeedsConversion } from './conversion'
 import type { Item, MediaSource, Page, Person, Playback, PlaybackInfoResponse, PlaybackOptions, Prepared, PublicInfo, Query, Recommendation, Segment, Session, View } from './types'
 
 const FIELDS = 'Overview,Genres,ProductionYear,OfficialRating,CommunityRating,RunTimeTicks'
@@ -90,6 +91,10 @@ function build(s: Session, signal?: AbortSignal) {
   const image = (id: string, tag: string | undefined, w: number, type = 'Primary') =>
     `${s.server}/Items/${seg(id)}/Images/${type}?maxWidth=${w}${tag ? `&tag=${encodeURIComponent(tag)}` : ''}`
 
+  /** The file as it is stored: what another player can be given. */
+  const fileUrl = (id: string, source: MediaSource) =>
+    `${s.server}/Videos/${seg(id)}/stream?static=true&MediaSourceId=${encodeURIComponent(source.Id)}&DeviceId=${encodeURIComponent(deviceId())}&ApiKey=${encodeURIComponent(s.token)}`
+
   const flag = (kind: 'Favorite' | 'Played') => (id: string, on: boolean) => {
     const method = on ? 'POST' : 'DELETE'
     return first<unknown>(`${kind}-${method}`, [
@@ -167,6 +172,9 @@ function build(s: Session, signal?: AbortSignal) {
     setFavorite: flag('Favorite'),
     setPlayed: flag('Played'),
 
+    fileUrl,
+    /** Tells this server and person from another: what saved answers are filed under. */
+    cacheKey: `${s.server}|${s.userId}`,
     // ----- images -----
     image,
     poster: (it: Item, w = 400) => {
@@ -251,8 +259,12 @@ function build(s: Session, signal?: AbortSignal) {
   const playback = async (id: string, o: PlaybackOptions = {}): Promise<Playback> => {
     const info = await get<PlaybackInfoResponse>(`/Items/${seg(id)}/PlaybackInfo`, { method: 'POST', body: JSON.stringify(playbackRequest(s.userId, o)) })
     const plan = planPlayback({ server: s.server, token: s.token, deviceId: deviceId(), id }, info, o)
-    if (plan) return plan
     const source = info.MediaSources?.[0]
+    // Not allowed to convert: a stream the server would have to re-encode, or none at all, ends here with the way to the file itself.
+    if (o.convert === false && (!plan || plan.method === 'Transcode')) {
+      throw new NeedsConversion(source ? fileUrl(id, source) : '', source?.Container ?? '', (source?.MediaStreams ?? []).map(m => m.Codec ?? '').filter(Boolean))
+    }
+    if (plan) return plan
     if (!source || !info.PlaySessionId) throw new Error('The server has nothing to play for this title.')
     const prep = { playSessionId: info.PlaySessionId, source }
     return { playSessionId: prep.playSessionId, source, url: raw.hlsUrl(id, prep, { audio: o.audio, burnSubtitle: o.subtitle, bitrate: o.bitrate }), kind: 'hls', method: 'Transcode', asked: o }
