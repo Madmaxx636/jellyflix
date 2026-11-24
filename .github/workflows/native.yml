@@ -28,3 +28,75 @@ jobs:
           cmake --build build -j4
       - name: Self-test
         run: native/tests/selftest.sh native/build/jellyflix
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Libraries
+        run: brew install qt mpv ffmpeg dylibbundler
+      - name: Build
+        working-directory: native
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(brew --prefix qt)"
+          cmake --build build -j4
+      - name: Self-test
+        run: native/tests/selftest.sh native/build/jellyflix.app/Contents/MacOS/jellyflix
+      - name: Bundle Qt and mpv into the app
+        working-directory: native/build
+        run: |
+          "$(brew --prefix qt)/bin/macdeployqt" jellyflix.app -qmldir=../qml
+          dylibbundler -od -b -x jellyflix.app/Contents/MacOS/jellyflix -d jellyflix.app/Contents/Frameworks -p @executable_path/../Frameworks
+          ditto -c -k --keepParent jellyflix.app "$RUNNER_TEMP/Jellyflix-macos-arm64.zip"
+      - name: The bundled app starts without Homebrew's libraries
+        run: |
+          mv "$(brew --prefix)/opt/mpv" "$RUNNER_TEMP/mpv-away" 2>/dev/null || true
+          native/tests/selftest.sh native/build/jellyflix.app/Contents/MacOS/jellyflix
+          mv "$RUNNER_TEMP/mpv-away" "$(brew --prefix)/opt/mpv" 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jellyflix-native-macos
+          path: ${{ runner.temp }}/Jellyflix-macos-arm64.zip
+
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-toolchain mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-qt6-base mingw-w64-ucrt-x86_64-qt6-declarative mingw-w64-ucrt-x86_64-qt6-tools
+            mingw-w64-ucrt-x86_64-qt6-svg mingw-w64-ucrt-x86_64-mpv mingw-w64-ucrt-x86_64-ffmpeg mingw-w64-ucrt-x86_64-nodejs
+            mingw-w64-ucrt-x86_64-pkgconf
+      - name: Build
+        working-directory: native
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+      - name: Self-test
+        run: native/tests/selftest.sh native/build/jellyflix.exe
+      - name: Bundle Qt and mpv next to the program
+        working-directory: native/build
+        run: |
+          mkdir -p ../dist && cp jellyflix.exe ../dist/
+          windeployqt6 --qmldir ../qml --release --no-translations ../dist/jellyflix.exe
+          # the rest of the libraries the program and mpv need, found by asking the loader
+          for pass in 1 2 3; do
+            for f in ../dist/*.exe ../dist/*.dll ../dist/*/*.dll; do
+              ldd "$f" 2>/dev/null | awk '/ucrt64/ {print $3}' | while read -r lib; do cp -n "$lib" ../dist/ ; done
+            done
+          done
+          cd .. && 7z a -tzip "$RUNNER_TEMP/Jellyflix-windows-x64.zip" ./dist/* >/dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jellyflix-native-windows
+          path: ${{ runner.temp }}/Jellyflix-windows-x64.zip

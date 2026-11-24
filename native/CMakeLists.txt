@@ -52,4 +52,13 @@ target_compile_definitions(jellyflix PRIVATE JELLYFLIX_VERSION="${PROJECT_VERSIO
 target_link_libraries(jellyflix PRIVATE
     Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::OpenGL PkgConfig::MPV)
 
-install(TARGETS jellyflix RUNTIME DESTINATION bin)
+set_target_properties(jellyflix PROPERTIES
+    MACOSX_BUNDLE ON
+    MACOSX_BUNDLE_BUNDLE_NAME "Jellyflix"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "app.jellyflix.native"
+    MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+    WIN32_EXECUTABLE ON # no console window
+)
+
+install(TARGETS jellyflix BUNDLE DESTINATION . RUNTIME DESTINATION bin)
