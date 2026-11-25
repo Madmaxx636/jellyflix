@@ -180,11 +180,13 @@ jobs:
           # the self-test runs without a screen, which needs Qt's "offscreen" platform plugin (windeployqt only brings the one for the screen)
           cp /ucrt64/share/qt6/plugins/platforms/qoffscreen.dll ../dist/platforms/
           # windeployqt missed some of the QML modules the app imports; they are copied by name (only the Basic style of the controls)
-          qml=/ucrt64/share/qt6/qml
+          qml="$(qmake6 -query QT_INSTALL_QML 2>/dev/null || true)"; [ -d "$qml" ] || qml=/ucrt64/share/qt6/qml
+          echo "QML modules come from: $qml"; ls "$qml" | head -30
           for m in QtQuick/Layouts QtQuick/Controls QtQuick/Templates QtQuick/Window QtQuick/Shapes QtQuick/Effects QtQml Qt QtCore; do
             if [ -d "$qml/$m" ]; then mkdir -p "../dist/qml/$(dirname "$m")"; cp -rn "$qml/$m" "../dist/qml/$(dirname "$m")/"; fi
           done
           rm -rf ../dist/qml/QtQuick/Controls/{Material,Universal,Fusion,Imagine,FluentWinUI3,Windows,macOS,iOS}
+          echo "bundled QtQuick modules:"; ls ../dist/qml/QtQuick | head -30; ls ../dist/qml/QtQuick/Layouts ../dist/qml/QtQuick/Controls/Basic 2>&1 | head -12
           # the rest of the libraries the program and mpv need, found by asking the loader
           for pass in 1 2 3; do
             for f in ../dist/*.exe $(find ../dist -name '*.dll'); do
