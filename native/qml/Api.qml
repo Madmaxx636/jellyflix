@@ -116,8 +116,8 @@ QtObject {
     function views(cb) { firstThatExists("views", ["/UserViews?userId=" + session.userId, "/Users/" + session.userId + "/Views"], r => cb(r.ok ? r.data.Items.filter(browsable) : [])) }
     /// Continue Watching is the canary: if even that fails it's a sign-in or connection problem worth showing.
     function probe(cb) { firstThatExists("resume", ["/UserItems/Resume?userId=" + session.userId + "&Limit=1", "/Users/" + session.userId + "/Items/Resume?Limit=1"], r => cb(r.ok ? "" : (r.status ? "the server answered " + r.status : (r.error || "no answer")))) }
-    function resume(cb) { firstThatExists("resume", ["/UserItems/Resume?userId=" + session.userId + "&Limit=20&MediaTypes=Video&Fields=" + fields, "/Users/" + session.userId + "/Items/Resume?Limit=20&MediaTypes=Video&Fields=" + fields], r => cb(r.ok ? r.data.Items : [])) }
-    function nextUp(cb) { get("/Shows/NextUp?UserId=" + session.userId + "&Limit=20&Fields=" + fields, r => cb(r.ok ? r.data.Items : [])) }
+    function resume(cb) { firstThatExists("resume", ["/UserItems/Resume?userId=" + session.userId + "&Limit=20&MediaTypes=Video&Fields=" + leanFields, "/Users/" + session.userId + "/Items/Resume?Limit=20&MediaTypes=Video&Fields=" + leanFields], r => cb(r.ok ? r.data.Items : [])) }
+    function nextUp(cb) { get("/Shows/NextUp?UserId=" + session.userId + "&Limit=20&Fields=" + leanFields, r => cb(r.ok ? r.data.Items : [])) }
     function latest(type, cb) { firstThatExists("latest", ["/Items/Latest?userId=" + session.userId + "&Limit=20&IncludeItemTypes=" + type + "&GroupItems=false&Fields=" + fields, "/Users/" + session.userId + "/Items/Latest?Limit=20&IncludeItemTypes=" + type + "&GroupItems=false&Fields=" + fields], r => cb(r.ok ? r.data : [])) }
     function items(q, cb) { get("/Items?" + itemsQuery(q), r => cb(r.ok ? { items: r.data.Items, total: r.data.TotalRecordCount === undefined ? r.data.Items.length : r.data.TotalRecordCount } : { items: [], total: 0, error: r.error })) }
     function item(id, cb) { firstThatExists("item", ["/Items/" + Util.seg(id) + "?userId=" + session.userId, "/Users/" + session.userId + "/Items/" + Util.seg(id)], r => cb(r.ok ? r.data : null, r)) }
@@ -132,8 +132,9 @@ QtObject {
         if (opts && opts.parentId) p.push("ParentId=" + opts.parentId)
         get("/Genres?" + p.join("&"), r => cb(r.ok ? r.data.Items.map(g => g.Name) : []))
     }
-    function byGenre(genre, cb) { items({ types: ["Movie", "Series"], genres: [genre], sortBy: "Random", limit: 20 }, r => cb(r.items)) }
-    function recommendations(cb) { get("/Movies/Recommendations?userId=" + session.userId + "&categoryLimit=3&itemLimit=14&Fields=" + fields, r => cb(r.ok ? r.data : [])) }
+    /// (Newest first: asking the server for a random sample of a big library is slow.)
+    function byGenre(genre, cb) { items({ types: ["Movie", "Series"], genres: [genre], sortBy: "DateCreated", sortOrder: "Descending", limit: 20, lean: true }, r => cb(r.items)) }
+    function recommendations(cb) { get("/Movies/Recommendations?userId=" + session.userId + "&categoryLimit=3&itemLimit=14&Fields=" + leanFields, r => cb(r.ok ? r.data : [])) }
     function extras(id, cb) {
         var out = [], left = 2
         var done = function () { if (--left === 0) cb(out) }

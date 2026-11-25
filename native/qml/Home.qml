@@ -28,6 +28,7 @@ PageBase {
         var worth = function (it) { return ((it.BackdropImageTags && it.BackdropImageTags.length) || (it.ParentBackdropImageTags && it.ParentBackdropImageTags.length)) && it.Overview }
         var pool = []
         if (Settings.rowSeasonal) pool = holiday.items.filter(worth)
+        if (pool.length < 2 && movies.length + shows.length === 0) return
         if (pool.length >= 2) { heroLabels = holiday.labels } else {
             heroLabels = ({})
             var seen = {}
@@ -38,35 +39,37 @@ PageBase {
         heroItems = pool.slice(0, 5)
     }
 
+    // Rows appear as their answers arrive. The first screenful (Continue Watching, Next Up, the newest titles and the libraries) is
+    // asked for first; the slower, less important things (recommendations, genre rows, the holiday picks) come after, a few at a time.
+    property int pending: 4
+    readonly property bool anyRows: resume.length + nextUp.length + movies.length + shows.length + favs.length + topRated.length > 0
     Component.onCompleted: {
-        var left = 10
-        var done = function () {
-            if (--left > 0) return
-            // genre rows come after the genres are known
-            var names = genreNames.slice(0, 12), got = 0, rows = new Array(names.length)
-            var finish = function () { genreRows = rows.filter(r => r && r.items.length); pickHero(); ready = true }
-            if (!names.length) { finish(); return }
-            names.forEach(function (g, i) { Api.byGenre(g, function (items) { rows[i] = { title: g, items: items }; if (++got === names.length) finish() }) })
-        }
-        Api.resume(r => { resume = r; done() })
+        var core = function () { if (--pending === 0) { pickHero(); ready = true; loadLater() } }
         Api.probe(err => { if (err) home.error = err })
-        Api.nextUp(r => { nextUp = r; done() })
-        Api.latest("Movie", r => { movies = r; done() })
-        Api.latest("Series", r => { shows = r; done() })
-        Api.genres(null, r => { genreNames = r; done() })
-        Api.items({ types: ["Movie", "Series", "BoxSet"], filters: ["IsFavorite"], sortBy: "DateCreated", sortOrder: "Descending", limit: 20 }, r => { favs = r.items; done() })
-        Api.items({ types: ["Movie", "Series"], sortBy: "CommunityRating", sortOrder: "Descending", limit: 10 }, r => { topRated = r.items; done() })
-        Api.recommendations(r => { recs = r; done() })
-        Api.views(r => { views = r; done() })
-        // holiday picks may take a few dozen requests the first time: the home page doesn't wait longer than a few seconds for them
-        var seasons = Seasonal.seasonsFor(new Date())
-        var settled = false
-        var finishHoliday = function (r) { if (settled) return; settled = true; if (r) holiday = r; done() }
-        if (seasons.length) { Seasonal.holidayPicks(Api, seasons, Settings.seasonalStyle, function (r) { finishHoliday(r); if (ready) pickHero() }); holidayTimeout.start() } else finishHoliday(null)
-        homeHolidayFinish = finishHoliday
+        Api.resume(r => { resume = r; core() })
+        Api.nextUp(r => { nextUp = r; core() })
+        Api.latest("Movie", r => { movies = r; pickHero(); core() })
+        Api.latest("Series", r => { shows = r; pickHero(); core() })
+        Api.views(r => { views = r })
     }
-    property var homeHolidayFinish: null
-    Timer { id: holidayTimeout; interval: 4000; onTriggered: if (home.homeHolidayFinish) home.homeHolidayFinish(null) }
+    function loadLater() {
+        Api.items({ types: ["Movie", "Series", "BoxSet"], filters: ["IsFavorite"], sortBy: "DateCreated", sortOrder: "Descending", limit: 20, lean: true }, r => favs = r.items)
+        Api.items({ types: ["Movie", "Series"], sortBy: "CommunityRating", sortOrder: "Descending", limit: 10, lean: true }, r => topRated = r.items)
+        Api.genres(null, function (names) {
+            genreNames = names
+            var wanted = names.slice(0, Settings.genreRows), rows = new Array(wanted.length), next = 0, active = 0
+            var pump = function () {
+                while (active < 3 && next < wanted.length) {
+                    (function (i) { active++; Api.byGenre(wanted[i], function (items) { rows[i] = { title: wanted[i], items: items }; genreRows = rows.filter(x => x); active--; pump() }) })(next++)
+                }
+            }
+            pump()
+        })
+        Api.recommendations(r => recs = r)
+        var seasons = Seasonal.seasonsFor(new Date())
+        if (seasons.length) Seasonal.holidayPicks(Api, seasons, Settings.seasonalStyle, function (r) { holiday = r; if (!heroTouched) pickHero() }, { get: k => Backend.setting(k, ""), set: (k, v) => Backend.setSetting(k, v) })
+    }
+    property bool heroTouched: false
 
     function rowDefs() {
         var rows = []
@@ -124,7 +127,7 @@ PageBase {
             topPadding: home.hasHero ? (Theme.hulu ? 16 : (Theme.look.brandTiles ? 22 : -home.height * 0.09)) : (Theme.look.brandTiles ? 14 : Theme.navH + 24)
             // placeholders while the first answers come in
             Repeater {
-                model: home.ready || home.error !== "" ? 0 : 3
+                model: !home.anyRows && home.error === "" ? 3 : 0
                 delegate: Column {
                     x: home.width * 0.04; spacing: 10
                     Shimmer { width: 180; height: 22 }
@@ -132,11 +135,11 @@ PageBase {
                 }
             }
             Repeater {
-                model: home.ready ? home.rowDefs() : []
+                model: home.rowDefs()
                 delegate: MediaRow { title: modelData.title; items: modelData.items; ranked: !!modelData.ranked; link: modelData.link || ""; linkParams: modelData.linkParams || ({}) }
             }
             Text {
-                visible: home.ready && home.rowDefs().every(r => r.items.length === 0)
+                visible: home.ready && !home.anyRows
                 x: home.width * 0.04; width: home.width * 0.9; wrapMode: Text.Wrap; color: Theme.muted; font.pixelSize: 18
                 text: "Nothing to show yet. Add some titles to your Jellyfin library and they'll appear here."
             }

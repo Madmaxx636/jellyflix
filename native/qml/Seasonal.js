@@ -136,20 +136,27 @@ function picksFor(api, season, style, cb) {
     asks.forEach(function (q) { api.items(q, function (r) { found = found.concat(r.items); if (++got === asks.length) check() }) })
 }
 
-/// Picks for every season that applies, taking turns between seasons. cb({items, labels}).
-function holidayPicks(api, seasons, style, cb) {
-    var lists = [], left = seasons.length
+/// Picks for every season that applies, taking turns between seasons. Finding them takes a few dozen requests, so each season's picks
+/// are kept for half a day in `store` ({get(key), set(key, text)}). cb({items, labels}).
+function holidayPicks(api, seasons, style, cb, store) {
+    var lists = [], left = seasons.length, TTL = 12 * 60 * 60 * 1000
     if (!left) { cb({ items: [], labels: ({}) }); return }
+    var key = function (season) { return "holiday." + api.session.server + "|" + api.session.userId + "." + season.id + "." + style }
+    var combine = function () {
+        var out = [], labels = {}
+        for (var i = 0; lists.some(function (l) { return i < l.items.length }); i++) {
+            lists.forEach(function (l) { var it = l.items[i]; if (it && labels[it.Id] === undefined) { labels[it.Id] = l.season.title; out.push(it) } })
+        }
+        cb({ items: out, labels: labels })
+    }
     seasons.forEach(function (season, si) {
+        var kept = null
+        try { var raw = store && store.get(key(season)); if (raw) { var p = JSON.parse(raw); if (Date.now() - p.at < TTL) kept = p.items } } catch (e) { kept = null }
+        var finish = function (items) { lists[si] = { season: season, items: items }; if (--left === 0) combine() }
+        if (kept) { finish(kept); return }
         picksFor(api, season, style, function (items) {
-            lists[si] = { season: season, items: items }
-            if (--left === 0) {
-                var out = [], labels = {}
-                for (var i = 0; lists.some(function (l) { return i < l.items.length }); i++) {
-                    lists.forEach(function (l) { var it = l.items[i]; if (it && labels[it.Id] === undefined) { labels[it.Id] = l.season.title; out.push(it) } })
-                }
-                cb({ items: out, labels: labels })
-            }
+            if (items.length && store) { try { store.set(key(season), JSON.stringify({ at: Date.now(), items: items })) } catch (e) { /* too big */ } }
+            finish(items)
         })
     })
 }

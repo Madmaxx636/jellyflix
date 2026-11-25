@@ -70,16 +70,22 @@ Item {
     }
     function page(name) { return app.stackView.currentItem && app.stackView.currentItem.objectName === name ? app.stackView.currentItem : null }
     function home() {
-        until("home: the home page loads", () => page("home") && page("home").ready, function () {
+        var t0 = Date.now()
+        until("home: the first rows are on screen", () => page("home") && page("home").anyRows, function () {
+            console.log("TIMING first rows after " + (Date.now() - t0) + " ms")
+            until("home: the home page loads", () => page("home") && page("home").ready, function () {
+            console.log("TIMING first screen complete after " + (Date.now() - t0) + " ms")
             var h = page("home")
             check("home: it has recently added movies and shows", h.movies.length > 0 && h.shows.length > 0, h.movies.length + " movies, " + h.shows.length + " shows")
             check("home: it has Continue Watching", h.resume.length > 0, h.resume.length + " titles")
             check("home: it has a banner", h.heroItems.length > 0, h.heroItems.length + " slides")
             check("home: it lists the libraries and hides Music", h.views.length > 0 && !h.views.some(v => v.CollectionType === "music"), h.views.map(v => v.Name).join(", "))
             if (Backend.shotsDir !== "") { shots(); return }
-            check("home: it has genre rows", h.genreRows.length > 0, h.genreRows.length + " rows")
-            Nav.openTitle(h.movies[0])
-            details(h.movies[0])
+            until("home: the genre rows follow, after the first screen", () => h.genreRows.length > 0, function () {
+                Nav.openTitle(h.movies[0])
+                details(h.movies[0])
+            })
+            })
         })
     }
     function details(movie) {

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.2 (2026-11-25)
+
+### Fixed
+- Slow loading. Home no longer waits for everything before showing anything: Continue Watching, Next Up, the newest titles
+  and the libraries are asked for first and drawn as soon as they arrive, and favourites, the top list, genre rows,
+  recommendations and the holiday picks follow in the background. Genre rows are only as many as Settings says and ask for
+  the newest titles rather than a slow random sample; rows ask only for what a card shows; the holiday picks are kept for
+  half a day.
+- Pictures are cached on disk, so posters come back at once on the next start, and a server with a certificate it made
+  itself now shows its pictures too.
+
 ## 1.0.1 (2026-11-25)
 
 The native app now has the web-engine app's whole interface: it was a bare skeleton in 1.0.0.
