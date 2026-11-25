@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.0.5 (2026-11-25)
+
+### Added
+- A new icon: a cute jellyfish hugging a play button. It is the window icon, the Linux package icon and the Windows program icon.
+- More ways to install: an `.rpm` (Fedora, openSUSE and relatives), an Arch package (`.pkg.tar.zst`) and a Windows installer
+  (`-setup.exe`, no administrator prompt, Start menu entry, optional desktop shortcut and an uninstaller). Each Linux
+  package was installed on a clean Ubuntu, Fedora and Arch image and checked for missing libraries, and the Windows
+  installer was run and the installed program tested.
+
+### Fixed
+- The profile photo was a square picture in a round slot, with its corners showing. It is now cut to the look's shape.
+- On Windows the program could fail to start outside the build machine: two QML modules the interface imports
+  (`QtQuick.Layouts` and `QtQuick.Controls.Basic`) were not in the download, and Qt was not told where to find them. This
+  affected the Windows zip of 1.0.0 to 1.0.4, which was only ever tested where the build tools are installed. Both packages
+  now carry them, with a `qt.conf`.
+- The `.deb` now lists the system libraries mpv's decoders need (OpenGL, ALSA, harfbuzz, fribidi, libusb, JACK, PipeWire) so a
+  minimal install is complete.
+
 ## 1.0.4 (2026-11-25)
 
 ### Fixed

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(Jellyflix VERSION 1.0.4 LANGUAGES CXX)
+project(Jellyflix VERSION 1.0.5 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -19,15 +19,25 @@ target_link_libraries(mpv_lib INTERFACE ${MPV_LIBRARY})
 
 qt_standard_project_setup(REQUIRES 6.5)
 
+# the icon: in the window, and (Windows) in the program file itself
+if(WIN32)
+    enable_language(RC)
+    set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}")
+    set(JELLYFLIX_WINRES packaging/jellyflix.rc)
+endif()
+
 qt_add_executable(jellyflix
     src/main.cpp
     src/backend.cpp
     src/backend.h
     src/mpvitem.cpp
     src/mpvitem.h
+    ${JELLYFLIX_WINRES}
 )
 
 set_source_files_properties(qml/Api.qml qml/Theme.qml qml/Settings.qml qml/Flags.qml qml/Toast.qml qml/Nav.qml qml/Updates.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+
+qt_add_resources(jellyflix appicon PREFIX "/" FILES packaging/jellyflix.png)
 
 qt_add_qml_module(jellyflix
     URI Jellyflix
