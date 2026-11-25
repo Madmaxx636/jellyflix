@@ -49,6 +49,7 @@ int main(int argc, char *argv[]) {
     QGuiApplication::setApplicationName("Jellyflix");
     QGuiApplication::setOrganizationName("jellyflix");
     QGuiApplication::setApplicationVersion(QStringLiteral(JELLYFLIX_VERSION));
+    QGuiApplication::setWindowIcon(QIcon(":/packaging/jellyflix.png"));
     QQuickStyle::setStyle("Basic");
 
     // One window: starting the app again brings the open one forward. (The test rig starts many and never meets this.)

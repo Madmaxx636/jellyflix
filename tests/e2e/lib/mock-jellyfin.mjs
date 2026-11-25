@@ -270,12 +270,13 @@ const handler = async (req, res) => {
   if (p === '/__state') return json(res, { ...(ud.get(q.get('id')) ?? {}), stoppedAt: stops.get(q.get('id')) })
   if (p === '/System/Info/Public') return json(res, { ServerName: 'Mock', Version: MODE === 'modern' ? '12.0.0' : '10.10.0', ProductName: 'Jellyfin Server', Id: 'mockserver' })
   if (p === '/Users/Public') return json(res, [{ Name: 'demo', Id: 'u1' }, { Name: 'guest', Id: 'u2' }])
+  if (p === '/Users/u1/Images/Primary') { res.writeHead(200, { 'Content-Type': 'image/svg+xml' }); return res.end('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" fill="#000"/><circle cx="48" cy="48" r="30" fill="#e8a317"/><rect x="92" width="4" height="96" fill="#fff"/><rect y="92" width="96" height="4" fill="#fff"/></svg>') } // a square picture with a white edge, like a real one can be
   if (p === '/Users/AuthenticateByName' && req.method === 'POST') {
     const b = JSON.parse((await readBody(req)) || '{}')
     const a = authInfo(req)
     for (const [k, param] of [['Client', 'request.App'], ['Version', 'request.AppVersion'], ['DeviceId', 'request.DeviceId'], ['Device', 'request.DeviceName']])
       if (!a[k]) return text(res, 400, `Value cannot be null. (Parameter '${param}')`)
-    if ((b.Username === 'demo' && b.Pw === 'demo') || (b.Username === 'guest' && b.Pw === 'guest')) return json(res, { AccessToken: TOKEN, User: { Id: 'u1', Name: b.Username } })
+    if ((b.Username === 'demo' && b.Pw === 'demo') || (b.Username === 'guest' && b.Pw === 'guest')) return json(res, { AccessToken: TOKEN, User: { Id: 'u1', Name: b.Username, ...(process.env.MOCK_AVATAR === '1' ? { PrimaryImageTag: 'a' } : {}) } })
     return json(res, { error: 'bad credentials' }, 401)
   }
   if ((m = p.match(/^\/Items\/([^/]+)\/Images\/(Primary|Backdrop|Thumb)$/))) {

@@ -76,7 +76,7 @@ Flickable {
                         width: 96; height: 128
                         Avatar { x: 6; width: 84; height: 84; name: modelData.Name; round: Theme.avatarRadius > 10
                             url: modelData.PrimaryImageTag ? page.profileServer + "/Users/" + modelData.Id + "/Images/Primary?maxWidth=160&tag=" + encodeURIComponent(modelData.PrimaryImageTag) : ""
-                            border.width: user.text === modelData.Name || pa.containsMouse ? 3 : 0; border.color: "white" }
+                            borderWidth: user.text === modelData.Name || pa.containsMouse ? 3 : 0; borderColor: "white" }
                         Text { y: 92; width: 96; text: modelData.Name; color: user.text === modelData.Name || pa.containsMouse ? "white" : Theme.muted; font.pixelSize: 14; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight }
                         MouseArea { id: pa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { user.text = modelData.Name; password.forceActiveFocus() } }
                     }

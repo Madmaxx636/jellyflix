@@ -69,6 +69,27 @@ jobs:
           CONTROL
           sed -i 's/^          //' pkg/DEBIAN/control
           dpkg-deb --build --root-owner-group pkg "out/Jellyflix-$version-linux-amd64.deb"
+      - name: Package as .rpm and for Arch Linux
+        run: |
+          version="${GITHUB_REF_NAME#v}"; [ "${GITHUB_REF_TYPE}" = tag ] || version=0.0.0
+          sudo apt-get install -y rpm libarchive-tools zstd ruby ruby-dev build-essential
+          sudo gem install --no-document fpm
+          rm -rf root && mkdir root && cp -a pkg/opt pkg/usr root/
+          common=(-s dir -n jellyflix -v "$version" -a x86_64 --license MIT --url https://github.com/Madmaxx636/jellyflix
+                  --description "A native Jellyfin client that plays every video, audio and subtitle format with mpv, so the server never converts anything." -C root .)
+          # the libraries inside /opt/jellyflix are its own: they must not be turned into requirements (--no-rpm-autoreqprov)
+          fpm -t rpm --iteration 1 --no-rpm-autoreqprov -d mesa-libGL -d mesa-libEGL -d libX11 -d libxcb -d libxkbcommon -d fontconfig -d freetype -d glib2 \
+            -p "out/Jellyflix-$version-linux-x86_64.rpm" "${common[@]}"
+          fpm -t pacman --pacman-compression zst -d mesa -d libx11 -d libxcb -d libxkbcommon -d fontconfig -d freetype2 -d glib2 \
+            -p "out/Jellyflix-$version-linux-x86_64.pkg.tar.zst" "${common[@]}"
+          ls -la out
+          rpm -qpl out/*.rpm | head -5; rpm -qp --requires out/*.rpm
+          bsdtar -xOf out/*.pkg.tar.zst .PKGINFO
+      - name: Install each package on its own distribution and check nothing is missing
+        run: |
+          check='ls /opt/jellyflix/usr/bin/jellyflix && (find /opt/jellyflix -type f \( -name "*.so*" -o -name jellyflix \) -exec ldd {} + 2>/dev/null | grep "not found" | sort -u > /tmp/missing; cat /tmp/missing; test ! -s /tmp/missing)'
+          docker run --rm -v "$PWD/out:/out:ro" fedora:latest bash -c "dnf install -y /out/*.rpm >/dev/null && $check"
+          docker run --rm -v "$PWD/out:/out:ro" archlinux:latest bash -c "pacman -Sy --noconfirm >/dev/null && pacman -U --noconfirm /out/*.pkg.tar.zst >/dev/null && pacman -S --noconfirm binutils >/dev/null && $check"
       - name: Self-test the installed .deb
         run: |
           sudo apt-get install -y ./out/*.deb
@@ -76,7 +97,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: jellyflix-native-linux
-          path: out/*.deb
+          path: out/*
 
   macos:
     runs-on: macos-latest
@@ -162,10 +183,28 @@ jobs:
             done
           done
           cd .. && powershell.exe -NoProfile -Command "Compress-Archive -Path '$(cygpath -w "$PWD/dist")\*' -DestinationPath '$(cygpath -w "$RUNNER_TEMP")\Jellyflix-${GITHUB_REF_NAME#v}-windows-x64.zip'"
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress | Out-Null
+          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '0.0.0' }
+          $dist = (Resolve-Path native/dist).Path
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" "/DSourceDir=$dist" "/O$env:RUNNER_TEMP" "/FJellyflix-$version-windows-x64-setup" native/packaging/jellyflix.iss
+          Get-ChildItem $env:RUNNER_TEMP -Filter *-setup.exe
+      - name: Install it silently and test what was installed
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem $env:RUNNER_TEMP -Filter *-setup.exe).FullName
+          Start-Process -FilePath $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/DIR=C:\jfinstall' -Wait
+          if (-not (Test-Path C:\jfinstall\jellyflix.exe)) { throw 'the installer did not install the program' }
+      - name: Self-test the installed program
+        run: native/tests/selftest.sh /c/jfinstall/jellyflix.exe
       - uses: actions/upload-artifact@v4
         with:
           name: jellyflix-native-windows
-          path: ${{ runner.temp }}/Jellyflix-*-windows-x64.zip
+          path: |
+            ${{ runner.temp }}/Jellyflix-*-windows-x64.zip
+            ${{ runner.temp }}/Jellyflix-*-setup.exe
 
   release:
     needs: [linux, windows]
@@ -183,9 +222,9 @@ jobs:
           (cd files && sha256sum * > SHA256SUMS.txt)
           version="${GITHUB_REF_NAME#v}"
           {
-            echo 'Pick the file for your system: the `.zip` for Windows (unzip it anywhere and run `jellyflix.exe`) or the `.deb` for Debian, Ubuntu and their relatives (`sudo apt install ./Jellyflix-…-linux-amd64.deb`). macOS and Android builds are not part of this release yet.'
+            echo 'Pick the file for your system. Windows: the `-setup.exe` installer, or the `.zip` to unzip anywhere and run `jellyflix.exe`. Debian, Ubuntu and relatives: the `.deb` (`sudo apt install ./Jellyflix-…-linux-amd64.deb`). Fedora, openSUSE and relatives: the `.rpm` (`sudo dnf install ./Jellyflix-…-linux-x86_64.rpm`). Arch and relatives: the `.pkg.tar.zst` (`sudo pacman -U Jellyflix-…-linux-x86_64.pkg.tar.zst`). macOS and Android builds are not part of this release yet.'
             echo
-            echo 'The Windows build is not signed, so Windows SmartScreen will warn before the first start (More info > Run anyway).'
+            echo 'The Windows installer and zip are not signed, so Windows SmartScreen will warn before the first start (More info > Run anyway).'
             echo
             awk -v v="$version" '$0 ~ "^## " v " " {f=1; next} /^## / {f=0} f' CHANGELOG.md
             echo

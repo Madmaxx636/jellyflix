@@ -163,7 +163,7 @@ Rectangle {
             width: 32; height: 32; anchors.verticalCenter: parent.verticalCenter
             Avatar { id: me; anchors.fill: parent; name: Api.session ? Api.session.userName : ""; round: Theme.avatarRadius > 10
                 url: Api.session && Api.session.avatarTag ? Api.session.server + "/Users/" + Api.session.userId + "/Images/Primary?maxWidth=96&tag=" + encodeURIComponent(Api.session.avatarTag) : ""
-                border.width: Theme.disney ? 2 : 0; border.color: Qt.rgba(1, 1, 1, 0.6) }
+                borderWidth: Theme.disney ? 2 : 0; borderColor: Qt.rgba(1, 1, 1, 0.6) }
             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: profilePop.open() }
             Popup {
                 id: profilePop; y: parent.height + 10; x: parent.width - width; padding: 8; width: 230
