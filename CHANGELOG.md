@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.1 (unreleased)
+## 1.0.1 (2026-11-25)
 
 The native app now has the web-engine app's whole interface: it was a bare skeleton in 1.0.0.
 
