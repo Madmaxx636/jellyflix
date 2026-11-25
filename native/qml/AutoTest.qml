@@ -163,6 +163,7 @@ Item {
         check("updates: a checksum is found in a listing by file name", Updates.checksumFor("aaa " + "b".repeat(61) + "\n" + "c".repeat(64) + "  Jellyflix-1.0.0-linux-amd64.deb\n", "Jellyflix-1.0.0-linux-amd64.deb") === "c".repeat(64) && Updates.checksumFor("x", "y") === "")
         Updates.check(true)
         until("updates: it finds the newer release", () => Updates.newest === "9.9.9" && Updates.assets.length === 5, function () {
+            if (Backend.updateKind === "") { check("updates: a copy that was not installed from one of our packages is only pointed at the release page", !Updates.canInstall && Updates.url !== ""); test.updatesDone = true; return }
             check("updates: it picks the package for this system", Updates.canInstall && Updates.pkgAsset !== null, Backend.updateKind + " -> " + (Updates.pkgAsset ? Updates.pkgAsset.name : "none"))
             Updates.install()
             until("updates: it downloads, checks and installs it (a dry run: nothing is really installed)", () => !Updates.installing && Updates.progress < 0 && Updates.message.indexOf("would run") === 0, function () {
