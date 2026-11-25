@@ -36,7 +36,8 @@ Column {
             leftMargin: row.side; rightMargin: row.side
             boundsBehavior: Flickable.StopAtBounds
             model: row.items
-            cacheBuffer: 600
+            cacheBuffer: 400
+            reuseItems: true
             delegate: Card { item: modelData; ranked: row.ranked; rank: index + 1; y: 4 }
             highlightFollowsCurrentItem: false
         }

@@ -1,5 +1,6 @@
 import QtQuick
 import Jellyflix
+import "Seasonal.js" as Seasonal
 
 /// Drives the app against a made-up server and reports PASS or FAIL for each thing, then quits. Only runs when the test rig asks.
 Item {
@@ -82,6 +83,7 @@ Item {
             check("home: it lists the libraries and hides Music", h.views.length > 0 && !h.views.some(v => v.CollectionType === "music"), h.views.map(v => v.Name).join(", "))
             if (Backend.shotsDir !== "") { shots(); return }
             until("home: the genre rows follow, after the first screen", () => h.genreRows.length > 0, function () {
+                if (Seasonal.seasonsFor(new Date()).length > 0) until("home: the holiday banner says what it found", () => Nav.holidayReport !== "" && h.heroItems.length > 0 && Object.keys(h.heroLabels).length > 0, function () { console.log("REPORT " + Nav.holidayReport) }, 20000)
                 Nav.openTitle(h.movies[0])
                 details(h.movies[0])
             })
