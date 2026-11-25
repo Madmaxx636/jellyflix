@@ -8,8 +8,9 @@ The app is rebuilt from scratch as a native program: no web engine, no Electron.
 - Every title is played as the file it is, by mpv, on your computer: every video and audio format (HEVC, AV1, AC3, E-AC3, DTS,
   TrueHD, 10-bit...), every container and every kind of subtitle (including picture subtitles), with the computer's own video
   decoder when it has one. The server never converts anything, so there is no waiting for it to start a conversion.
-- The four looks (Netflix, Hulu, HBO, Disney+) are drawn natively. Windows and macOS packages are zip files with everything
-  inside; Linux is an AppImage. The Android and Google TV app is part of the release as before.
+- The four looks (Netflix, Hulu, HBO, Disney+) are drawn natively. This release has a Windows zip (everything inside) and a
+  Linux .deb (Qt and mpv inside, so it doesn't depend on the versions your distribution has). macOS and Android builds are not
+  part of it yet; the Android app stays at 0.5.0.
 - Sign-in guesses the address (a missing port, https or http, a pasted web link), and a server with a certificate it made
   itself is shown once and asked about.
 

@@ -32,28 +32,51 @@ jobs:
           cmake --build build -j4
       - name: Self-test
         run: native/tests/selftest.sh native/build/jellyflix
-      - name: Package as an AppImage
+      - name: Package as a .deb
         run: |
-          version="${GITHUB_REF_NAME#v}"; [ "${GITHUB_REF_TYPE}" = tag ] || version=dev
+          version="${GITHUB_REF_NAME#v}"; [ "${GITHUB_REF_TYPE}" = tag ] || version=0.0.0~dev
           cmake --install native/build --prefix AppDir/usr
           base=https://github.com/linuxdeploy
           wget -q "$base/linuxdeploy/releases/download/1-alpha-20250213-2/linuxdeploy-x86_64.AppImage"
-          wget -q "$base/linuxdeploy-plugin-qt/releases/download/1-alpha-20250213-2/linuxdeploy-plugin-qt-x86_64.AppImage"
+          wget -q "$base/linuxdeploy-plugin-qt/releases/download/1-alpha-20250213-1/linuxdeploy-plugin-qt-x86_64.AppImage"
           chmod +x linuxdeploy*.AppImage
           export QMAKE="$QT_ROOT_DIR/bin/qmake" QML_SOURCES_PATHS="$PWD/native/qml" DEPLOY_PLATFORM_THEMES=1
           export LD_LIBRARY_PATH="$QT_ROOT_DIR/lib:$LD_LIBRARY_PATH"
+          # Gathers Qt, mpv and the libraries they need into AppDir (no AppImage is made from it).
           ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run --appdir AppDir \
-            -e AppDir/usr/bin/jellyflix -d native/packaging/jellyflix.desktop -i native/packaging/jellyflix.png \
-            --plugin qt --output appimage
-          mkdir out && mv Jellyflix*.AppImage "out/Jellyflix-$version-linux-x64.AppImage"
-      - name: Self-test the AppImage
+            -e AppDir/usr/bin/jellyflix -d native/packaging/jellyflix.desktop -i native/packaging/jellyflix.png --plugin qt
+          # The .deb keeps it all in /opt/jellyflix, so it does not depend on the Qt or mpv versions the distribution has.
+          mkdir -p pkg/DEBIAN pkg/opt pkg/usr/bin pkg/usr/share/applications pkg/usr/share/icons/hicolor/512x512/apps out
+          cp -a AppDir pkg/opt/jellyflix
+          rm -f pkg/opt/jellyflix/AppRun pkg/opt/jellyflix/*.desktop pkg/opt/jellyflix/*.png pkg/opt/jellyflix/.DirIcon
+          ln -s /opt/jellyflix/usr/bin/jellyflix pkg/usr/bin/jellyflix
+          sed 's|^Exec=.*|Exec=/opt/jellyflix/usr/bin/jellyflix|' native/packaging/jellyflix.desktop > pkg/usr/share/applications/jellyflix.desktop
+          cp native/packaging/jellyflix.png pkg/usr/share/icons/hicolor/512x512/apps/jellyflix.png
+          size="$(du -sk pkg | cut -f1)"
+          cat > pkg/DEBIAN/control <<CONTROL
+          Package: jellyflix
+          Version: $version
+          Section: video
+          Priority: optional
+          Architecture: amd64
+          Maintainer: Jellyflix <noreply@users.noreply.github.com>
+          Installed-Size: $size
+          Depends: libc6, libgl1, libegl1, libx11-6, libxcb1, libxkbcommon0, libfontconfig1, libfreetype6, libglib2.0-0
+          Homepage: https://github.com/Madmaxx636/jellyflix
+          Description: Jellyfin client that plays everything
+           A native Jellyfin client with the look of the services you know. Plays every video, audio and subtitle format with
+           mpv, so the server never converts anything. Not affiliated with Jellyfin or any streaming service.
+          CONTROL
+          sed -i 's/^          //' pkg/DEBIAN/control
+          dpkg-deb --build --root-owner-group pkg "out/Jellyflix-$version-linux-amd64.deb"
+      - name: Self-test the installed .deb
         run: |
-          chmod +x out/*.AppImage
-          APPIMAGE_EXTRACT_AND_RUN=1 native/tests/selftest.sh "$(ls out/*.AppImage)"
+          sudo apt-get install -y ./out/*.deb
+          native/tests/selftest.sh /usr/bin/jellyflix
       - uses: actions/upload-artifact@v4
         with:
           name: jellyflix-native-linux
-          path: out/*.AppImage
+          path: out/*.deb
 
   macos:
     runs-on: macos-latest
@@ -144,51 +167,8 @@ jobs:
           name: jellyflix-native-windows
           path: ${{ runner.temp }}/Jellyflix-*-windows-x64.zip
 
-  android:
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: 8.10.2
-      - name: Restore the signing key
-        env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
-            echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
-          fi
-      - name: Version
-        run: |
-          version="${GITHUB_REF_NAME#v}"
-          IFS=. read -r major minor patch <<< "${version%%-*}"
-          echo "VERSION=$version" >> "$GITHUB_ENV"
-          echo "VERSION_CODE=$((major * 10000 + minor * 100 + patch))" >> "$GITHUB_ENV"
-      - name: Test and build the signed APK
-        working-directory: android
-        run: gradle test assembleRelease -PversionName="$VERSION" -PversionCode="$VERSION_CODE" --stacktrace
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-      - name: Name the file and refuse an unsigned one
-        run: |
-          [ -f android/app/build/outputs/apk/release/app-release.apk ] || { echo 'the APK is unsigned: the signing secrets are missing'; exit 1; }
-          mkdir out && cp android/app/build/outputs/apk/release/app-release.apk "out/Jellyflix-$VERSION-android.apk"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: jellyflix-native-android
-          if-no-files-found: error
-          path: out/*.apk
-
   release:
-    needs: [linux, macos, windows, android]
+    needs: [linux, windows]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
@@ -196,16 +176,16 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: files
-          pattern: jellyflix-native-*
+          pattern: jellyflix-native-{linux,windows}
           merge-multiple: true
       - name: Checksums and release notes
         run: |
           (cd files && sha256sum * > SHA256SUMS.txt)
           version="${GITHUB_REF_NAME#v}"
           {
-            echo 'Pick the file for your system: the `.zip` for Windows (unzip it anywhere and run `jellyflix.exe`), the `.zip` for macOS (Apple silicon; drag `jellyflix.app` to Applications), the `.AppImage` for Linux (make it executable and run it), and the `.apk` for Android phones, tablets and Google TV (sideload it).'
+            echo 'Pick the file for your system: the `.zip` for Windows (unzip it anywhere and run `jellyflix.exe`) or the `.deb` for Debian, Ubuntu and their relatives (`sudo apt install ./Jellyflix-…-linux-amd64.deb`). macOS and Android builds are not part of this release yet.'
             echo
-            echo 'The Windows and macOS builds are not signed, so Windows SmartScreen and macOS Gatekeeper will warn before the first start (Windows: More info > Run anyway; macOS: right-click the app > Open).'
+            echo 'The Windows build is not signed, so Windows SmartScreen will warn before the first start (More info > Run anyway).'
             echo
             awk -v v="$version" '$0 ~ "^## " v " " {f=1; next} /^## / {f=0} f' CHANGELOG.md
             echo
