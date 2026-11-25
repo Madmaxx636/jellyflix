@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.3 (2026-11-25)
+
+### Fixed
+- Scrolling was slow and sticky, with no glide. A mouse wheel now glides instead of jumping in steps, a trackpad's smooth
+  steps are followed as they come, and a finger flick keeps going after you let go. Movies, Shows and other grids only build
+  the cards on or near the screen, and pictures are decoded at the size they are shown.
+- The holiday banner could miss Thanksgiving and Christmas titles. Titles are now looked up by their longest word (the
+  server's search is thrown off by apostrophes and punctuation), unrated titles rated for the family are kept, a single pick
+  is enough to show, and Settings > About says what the banner found.
+
 ## 1.0.2 (2026-11-25)
 
 ### Fixed
