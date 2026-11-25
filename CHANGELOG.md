@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.4 (2026-11-25)
+
+### Fixed
+- The holiday banner didn't show Thanksgiving or Christmas movies and episodes. It looked each title up through the server's
+  search, which stumbles on punctuation, accents and short words. It now reads the library's movies and series (500 at a
+  time: names, tags, genres, ratings) and matches the classics list, holiday words and tags itself. Holiday episodes, such as
+  The Twilight Zone's "The Night of the Meek", are found by asking the matching series for its episodes. Bad horror with a
+  Christmas tag stays out, and a title only needs a picture to be featured. Settings > About says what the banner found.
+
 ## 1.0.3 (2026-11-25)
 
 ### Fixed
