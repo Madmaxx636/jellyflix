@@ -186,6 +186,8 @@ jobs:
             if [ -d "$qml/$m" ]; then mkdir -p "../dist/qml/$(dirname "$m")"; cp -rn "$qml/$m" "../dist/qml/$(dirname "$m")/"; fi
           done
           rm -rf ../dist/qml/QtQuick/Controls/{Material,Universal,Fusion,Imagine,FluentWinUI3,Windows,macOS,iOS}
+          # Qt looks for its plugins and QML modules where it was installed unless told otherwise: tell it they are next to the program
+          printf '[Paths]\nPrefix = .\nPlugins = .\nImports = qml\nQml2Imports = qml\n' > ../dist/qt.conf
           echo "bundled QtQuick modules:"; ls ../dist/qml/QtQuick | head -30; ls ../dist/qml/QtQuick/Layouts ../dist/qml/QtQuick/Controls/Basic 2>&1 | head -12
           # the rest of the libraries the program and mpv need, found by asking the loader
           for pass in 1 2 3; do
