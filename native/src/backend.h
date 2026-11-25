@@ -19,6 +19,7 @@ class Backend : public QObject {
     Q_PROPERTY(QString version READ version CONSTANT)
     Q_PROPERTY(bool testMode READ testMode CONSTANT)
     Q_PROPERTY(QString testServer READ testServer CONSTANT)
+    Q_PROPERTY(QString shotsDir READ shotsDir CONSTANT)
 public:
     explicit Backend(QObject *parent = nullptr);
 
@@ -28,6 +29,8 @@ public:
     /// Set by the test rig (JELLYFLIX_TEST_SERVER): the app signs in to a made-up server and checks itself. Never set in normal use.
     bool testMode() const { return !qEnvironmentVariableIsEmpty("JELLYFLIX_TEST_SERVER"); }
     QString testServer() const { return qEnvironmentVariable("JELLYFLIX_TEST_SERVER"); }
+    /// With JELLYFLIX_SHOTS=<folder> the self-test saves a picture of each page in each look there.
+    QString shotsDir() const { return qEnvironmentVariable("JELLYFLIX_SHOTS"); }
 
     /// Sends a request. The callback gets one object: {ok, status, data, error, cert}.
     /// `cert` is set when the server's certificate isn't trusted: {fingerprint, subject, issuer, validFrom, validTo}.

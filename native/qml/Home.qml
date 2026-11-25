@@ -1,75 +1,145 @@
 import QtQuick
-import QtQuick.Controls.Basic
 import Jellyflix
+import "Seasonal.js" as Seasonal
+import "Util.js" as Util
 
-Flickable {
+PageBase {
     id: home
     objectName: "home"
-    signal opened(var item)
-    signal openedLibrary(var view)
+    framed: false
     property var resume: []
     property var nextUp: []
     property var movies: []
     property var shows: []
+    property var favs: []
+    property var topRated: []
+    property var recs: []
     property var views: []
-    property var hero: null
+    property var genreNames: []
+    property var genreRows: []
+    property var holiday: ({ items: [], labels: ({}) })
     property bool ready: false
-    contentWidth: width
-    contentHeight: column.height + 40
-    boundsBehavior: Flickable.StopAtBounds
-    clip: true
-    ScrollBar.vertical: ScrollBar {}
+    property string error: ""
+    property var heroItems: []
+    property var heroLabels: ({})
+    readonly property bool hasHero: Settings.showHero && heroItems.length > 0
+
+    function pickHero() {
+        var worth = function (it) { return ((it.BackdropImageTags && it.BackdropImageTags.length) || (it.ParentBackdropImageTags && it.ParentBackdropImageTags.length)) && it.Overview }
+        var pool = []
+        if (Settings.rowSeasonal) pool = holiday.items.filter(worth)
+        if (pool.length >= 2) { heroLabels = holiday.labels } else {
+            heroLabels = ({})
+            var seen = {}
+            pool = []
+            movies.concat(shows, topRated, recs.reduce((a, r) => a.concat(r.Items || []), [])).forEach(function (it) { if (!seen[it.Id] && worth(it)) { seen[it.Id] = true; pool.push(it) } })
+        }
+        for (var i = pool.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = pool[i]; pool[i] = pool[j]; pool[j] = t }
+        heroItems = pool.slice(0, 5)
+    }
 
     Component.onCompleted: {
-        var left = 5
+        var left = 10
         var done = function () {
             if (--left > 0) return
-            var pool = [].concat(movies, shows).filter(i => (i.BackdropImageTags && i.BackdropImageTags.length) && i.Overview)
-            hero = pool.length ? pool[Math.floor(Math.random() * Math.min(pool.length, 5))] : (resume.length ? resume[0] : null)
-            ready = true
+            // genre rows come after the genres are known
+            var names = genreNames.slice(0, 12), got = 0, rows = new Array(names.length)
+            var finish = function () { genreRows = rows.filter(r => r && r.items.length); pickHero(); ready = true }
+            if (!names.length) { finish(); return }
+            names.forEach(function (g, i) { Api.byGenre(g, function (items) { rows[i] = { title: g, items: items }; if (++got === names.length) finish() }) })
         }
         Api.resume(r => { resume = r; done() })
         Api.nextUp(r => { nextUp = r; done() })
         Api.latest("Movie", r => { movies = r; done() })
         Api.latest("Series", r => { shows = r; done() })
+        Api.genres(null, r => { genreNames = r; done() })
+        Api.items({ types: ["Movie", "Series", "BoxSet"], filters: ["IsFavorite"], sortBy: "DateCreated", sortOrder: "Descending", limit: 20 }, r => { favs = r.items; done() })
+        Api.items({ types: ["Movie", "Series"], sortBy: "CommunityRating", sortOrder: "Descending", limit: 10 }, r => { topRated = r.items; done() })
+        Api.recommendations(r => { recs = r; done() })
         Api.views(r => { views = r; done() })
+        // holiday picks may take a few dozen requests the first time: the home page doesn't wait longer than a few seconds for them
+        var seasons = Seasonal.seasonsFor(new Date())
+        var settled = false
+        var finishHoliday = function (r) { if (settled) return; settled = true; if (r) holiday = r; done() }
+        if (seasons.length) { Seasonal.holidayPicks(Api, seasons, Settings.seasonalStyle, function (r) { finishHoliday(r); if (ready) pickHero() }); holidayTimeout.start() } else finishHoliday(null)
+        homeHolidayFinish = finishHoliday
+    }
+    property var homeHolidayFinish: null
+    Timer { id: holidayTimeout; interval: 4000; onTriggered: if (home.homeHolidayFinish) home.homeHolidayFinish(null) }
+
+    function rowDefs() {
+        var rows = []
+        if (Settings.rowContinue) rows.push({ title: Theme.continueTitle(Api.session ? Api.session.userName : ""), items: resume })
+        if (Settings.rowNextUp) rows.push({ title: Theme.words.nextUp, items: nextUp })
+        if (Settings.rowMyList) rows.push({ title: Theme.words.myList, items: favs, link: "mylist" })
+        if (Settings.rowRecommended) recs.forEach(function (r) {
+            var name = r.BaselineItemName || "", type = String(r.RecommendationType || "")
+            rows.push({ title: /director/i.test(type) ? "Directed by " + name : /actor/i.test(type) ? "Starring " + name : Theme.becauseYouWatched(name), items: r.Items || [] })
+        })
+        if (Settings.rowTopRated) rows.push({ title: Theme.words.topRated, items: topRated, ranked: Theme.look.top10, link: "new" })
+        if (Settings.rowRecent) { rows.push({ title: Theme.recentlyAdded("movies"), items: movies, link: "movies" }); rows.push({ title: Theme.recentlyAdded("shows"), items: shows, link: "shows" }) }
+        genreRows.slice(0, Settings.genreRows).forEach(g => rows.push({ title: g.title, items: g.items, link: "genre", linkParams: { name: g.title } }))
+        return rows
     }
 
     Column {
-        id: column
         width: home.width
-        spacing: 16
+        spacing: 0
 
-        Item {
-            id: banner
-            visible: home.hero !== null
-            width: parent.width; height: visible ? Math.min(460, home.width * 0.42) : 0
-            Image { anchors.fill: parent; source: home.hero ? Api.backdrop(home.hero, 1600) : ""; fillMode: Image.PreserveAspectCrop; asynchronous: true }
-            Rectangle { anchors.fill: parent; gradient: Gradient { GradientStop { position: 0.0; color: "transparent" } GradientStop { position: 1.0; color: Theme.background } } }
-            Rectangle { anchors.fill: parent; gradient: Gradient { orientation: Gradient.Horizontal; GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.7) } GradientStop { position: 0.6; color: "transparent" } } }
-            Column {
-                anchors.left: parent.left; anchors.leftMargin: 32; anchors.bottom: parent.bottom; anchors.bottomMargin: 36
-                width: Math.min(620, parent.width - 64); spacing: 10
-                Text { width: parent.width; text: home.hero ? (home.hero.Type === "Episode" ? (home.hero.SeriesName || home.hero.Name) : home.hero.Name) : ""; color: "white"; font.pixelSize: 40; font.bold: true; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight }
-                Text { width: parent.width; text: home.hero && home.hero.Overview ? home.hero.Overview : ""; color: "#e0e0e0"; font.pixelSize: 15; wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight }
-                Row { spacing: 10
-                    FlatButton { objectName: "heroPlay"; text: "Play"; primary: true; onClicked: home.opened(home.hero) }
-                    FlatButton { text: "More Info"; onClicked: home.opened(home.hero) }
+        // Hulu's banner is inset and rounded, and starts just under the bar
+        Item { visible: Theme.hulu && home.hasHero; width: 1; height: Theme.navH + 10 }
+        Hero {
+            width: Theme.hulu ? parent.width * 0.92 : parent.width; vh: home.height
+            visible: home.hasHero
+            height: visible ? Math.max(460, vh * share) : 0
+            items: home.heroItems; labels: home.heroLabels
+            x: Theme.hulu ? parent.width * 0.04 : 0
+        }
+
+        // Disney+: libraries as brand tiles under the banner
+        Grid {
+            visible: Theme.look.brandTiles && home.ready
+            x: parent.width * 0.04; width: parent.width * 0.92
+            columns: Math.max(2, Math.floor(width / 164)); spacing: 14
+            topPadding: home.hasHero ? -34 : Theme.navH + 20
+            readonly property real tw: (width - (columns - 1) * 14) / columns
+            Repeater {
+                model: home.views.slice(0, 5)
+                delegate: Tile {
+                    width: parent.tw; height: width * 0.625; name: modelData.Name
+                    art: modelData.ImageTags && modelData.ImageTags.Primary ? Api.image(modelData.Id, modelData.ImageTags.Primary, 640) : ""
+                    finder: function (cb) { Api.items({ parentId: modelData.Id, types: ["Movie", "Series"], sortBy: "Random", limit: 1 }, function (r) { var it = r.items[0]; cb(it ? (Api.backdrop(it, 640) || Api.thumb(it, 640)) : "") }) }
+                    onClicked: Nav.navigate("library", { view: modelData })
                 }
             }
+            Tile { visible: !home.views.some(v => (v.CollectionType || "").toLowerCase() === "boxsets"); width: visible ? parent.tw : 0; height: width * 0.625; name: Theme.words.collections; misc: true; onClicked: Nav.navigate("collections", {}) }
+            Tile { width: parent.tw; height: width * 0.625; name: Theme.words.genres; misc: true; alt: true; onClicked: Nav.navigate("genres", {}) }
         }
 
-        MediaRow { title: Theme.continueTitle; items: home.resume; onOpened: item => home.opened(item) }
-        MediaRow { title: "Next Up"; items: home.nextUp; onOpened: item => home.opened(item) }
-        MediaRow { title: "Recently Added Movies"; items: home.movies; onOpened: item => home.opened(item) }
-        MediaRow { title: "Recently Added Shows"; items: home.shows; onOpened: item => home.opened(item) }
         Column {
-            visible: home.views.length > 0; spacing: 8
-            Text { x: 24; text: Theme.styled("Libraries"); color: "white"; font.pixelSize: 20; font.bold: true }
-            Row { x: 24; spacing: 12
-                Repeater { model: home.views; delegate: FlatButton { text: modelData.Name; onClicked: home.openedLibrary(modelData) } }
+            id: rows
+            width: parent.width
+            spacing: 14
+            topPadding: home.hasHero ? (Theme.hulu ? 16 : (Theme.look.brandTiles ? 22 : -home.height * 0.09)) : (Theme.look.brandTiles ? 14 : Theme.navH + 24)
+            // placeholders while the first answers come in
+            Repeater {
+                model: home.ready || home.error !== "" ? 0 : 3
+                delegate: Column {
+                    x: home.width * 0.04; spacing: 10
+                    Shimmer { width: 180; height: 22 }
+                    Row { spacing: 6; Repeater { model: 8; delegate: Shimmer { width: Theme.landscape ? Theme.cardWideW : Theme.cardW; height: Theme.landscape ? Theme.cardWideW * 9 / 16 : Theme.cardW * 1.5 } } }
+                }
             }
+            Repeater {
+                model: home.ready ? home.rowDefs() : []
+                delegate: MediaRow { title: modelData.title; items: modelData.items; ranked: !!modelData.ranked; link: modelData.link || ""; linkParams: modelData.linkParams || ({}) }
+            }
+            Text {
+                visible: home.ready && home.rowDefs().every(r => r.items.length === 0)
+                x: home.width * 0.04; width: home.width * 0.9; wrapMode: Text.Wrap; color: Theme.muted; font.pixelSize: 18
+                text: "Nothing to show yet. Add some titles to your Jellyfin library and they'll appear here."
+            }
+            Item { width: 1; height: 60 }
         }
-        Text { visible: home.ready && home.resume.length + home.nextUp.length + home.movies.length + home.shows.length === 0; x: 24; text: "Nothing to show yet. Add some titles to your Jellyfin library and they'll appear here."; color: Theme.muted }
     }
 }

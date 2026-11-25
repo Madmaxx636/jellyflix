@@ -24,8 +24,8 @@ Popup {
         Text { Layout.fillWidth: true; wrapMode: Text.WrapAnywhere; color: "white"; font.pixelSize: 12; font.family: "monospace"; text: "SHA-256: " + (cert.fingerprint || "") }
         RowLayout {
             Layout.alignment: Qt.AlignRight
-            FlatButton { text: "Cancel"; onClicked: dialog.close() }
-            FlatButton { text: "Trust and continue"; primary: true; onClicked: { Backend.trustCertificate(cert.fingerprint); dialog.close(); dialog.trusted() } }
+            Btn { text: "Cancel"; onClicked: dialog.close() }
+            Btn { text: "Trust and continue"; primary: true; accentFill: true; onClicked: { Backend.trustCertificate(cert.fingerprint); dialog.close(); dialog.trusted() } }
         }
     }
 }
