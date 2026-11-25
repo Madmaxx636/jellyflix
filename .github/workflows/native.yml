@@ -210,22 +210,8 @@ jobs:
           $setup = (Get-ChildItem $env:RUNNER_TEMP -Filter *-setup.exe).FullName
           Start-Process -FilePath $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/DIR=C:\jfinstall' -Wait
           if (-not (Test-Path C:\jfinstall\jellyflix.exe)) { throw 'the installer did not install the program' }
-      - name: What the installed program says when it starts
-        shell: pwsh
-        continue-on-error: true
-        run: |
-          $env:JELLYFLIX_HEADLESS = '1'; $env:QT_QPA_PLATFORM = 'offscreen'; $env:QT_DEBUG_PLUGINS = '1'; $env:QT_ASSUME_STDERR_HAS_CONSOLE = '1'
-          $env:JELLYFLIX_TEST_SERVER = 'http://127.0.0.1:1'
-          $p = Start-Process -FilePath C:\jfinstall\jellyflix.exe -PassThru -RedirectStandardError $env:RUNNER_TEMP\err.txt -RedirectStandardOutput $env:RUNNER_TEMP\out.txt
-          Start-Sleep -Seconds 8
-          "exited: $($p.HasExited) code: $(if ($p.HasExited) { $p.ExitCode })"
-          if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
-          Get-Content $env:RUNNER_TEMP\err.txt -Tail 40
-          Get-Content $env:RUNNER_TEMP\out.txt -Tail 10
-          Get-ChildItem C:\jfinstall -Directory | Select-Object -ExpandProperty Name
-          Get-ChildItem C:\jfinstall\platforms
       - name: Self-test the installed program
-        run: bash -x native/tests/selftest.sh /c/jfinstall/jellyflix.exe 2>&1 | tail -60
+        run: native/tests/selftest.sh /c/jfinstall/jellyflix.exe
       - uses: actions/upload-artifact@v4
         with:
           name: jellyflix-native-windows
