@@ -1,7 +1,14 @@
 # Jellyflix
 
 A desktop client for [Jellyfin](https://jellyfin.org) that can look and work like Netflix, Hulu, HBO or Disney+.
-Built with Electron, React and TypeScript. Runs on Linux, Windows and macOS.
+From version 1.0 it is a native program (Qt 6 for the windows, mpv for the video; the code is in `native/`), so every video,
+audio and subtitle format plays as the file it is and the server never converts anything. Releases 0.x were built with
+Electron, React and TypeScript (the code is still in `src/`). Runs on Linux and Windows (the macOS build exists and passes its
+tests, but is not released yet).
+
+**Install:** the release page has a Linux `.deb` (`sudo apt install ./Jellyflix-…-linux-amd64.deb`) and a Windows `.zip`
+(unzip it anywhere and run `jellyflix.exe`; it is not signed, so SmartScreen warns once). Everything below describes the
+features; the sections on Electron, packaging and the web-engine tests describe the 0.x app.
 
 The four looks are approximations of how those services are laid out and worded. They use no logos or artwork from
 any of them. Every look has the same features; the look changes the layout, the wording and the styling.

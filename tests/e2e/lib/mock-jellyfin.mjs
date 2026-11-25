@@ -124,6 +124,12 @@ const STREAMS = [
 /** Single-item responses carry the extra detail that list responses leave out. */
 // Seek-bar previews, as a server that has made them describes them: 13 thumbnails, one a second, in one 5 by 5 tile.
 const TRICKPLAY = { ms1: { 160: { Width: 160, Height: 90, TileWidth: 5, TileHeight: 5, ThumbnailCount: 13, Interval: 1000, Bandwidth: 1000 } } }
+// Qt's SVG renderer (the native app) doesn't read hsl(); MOCK_RGB=1 turns the art's colours into rgb() for it.
+const hslToRgb = svg => svg.replace(/hsl\((\d+(?:\.\d+)?) (\d+)% (\d+)%\)/g, (_m, h, s, l) => {
+  const S = s / 100, L = l / 100, a = S * Math.min(L, 1 - L)
+  const f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (L - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))) }
+  return `rgb(${f(0)},${f(8)},${f(4)})`
+})
 const tileSvg = () => `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450">${Array.from({ length: 25 }, (_, k) => `<rect x="${(k % 5) * 160}" y="${Math.floor(k / 5) * 90}" width="160" height="90" fill="hsl(${k * 14} 60% 40%)"/><text x="${(k % 5) * 160 + 80}" y="${Math.floor(k / 5) * 90 + 55}" font-size="40" fill="#fff" text-anchor="middle">${k}s</text>`).join('')}</svg>`
 const detail = it => {
   const base = V(it)
@@ -262,7 +268,7 @@ const handler = async (req, res) => {
     const it = get(m[1])
     if (!it) { res.writeHead(404); return res.end() }
     res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'max-age=60' })
-    return res.end(art(it, m[2]))
+    return res.end(process.env.MOCK_RGB === '1' ? hslToRgb(art(it, m[2])) : art(it, m[2]))
   }
   if ((m = p.match(/^\/Videos\/[^/]+\/(seg\d+\.ts)$/i)) && MEDIA) { // real Jellyfin puts the token in segment URLs; the mock does not care
     const f = path.join(MEDIA, m[1])

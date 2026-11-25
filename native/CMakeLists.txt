@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(Jellyflix VERSION 1.0.0 LANGUAGES CXX)
+project(Jellyflix VERSION 1.0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -27,7 +27,7 @@ qt_add_executable(jellyflix
     src/mpvitem.h
 )
 
-set_source_files_properties(qml/Api.qml qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+set_source_files_properties(qml/Api.qml qml/Theme.qml qml/Settings.qml qml/Flags.qml qml/Toast.qml qml/Nav.qml qml/Updates.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 qt_add_qml_module(jellyflix
     URI Jellyflix
@@ -36,20 +36,41 @@ qt_add_qml_module(jellyflix
         qml/Main.qml
         qml/Login.qml
         qml/NavBar.qml
+        qml/PageBase.qml
         qml/Home.qml
-        qml/MediaRow.qml
-        qml/Poster.qml
+        qml/Browse.qml
+        qml/Person.qml
+        qml/Libraries.qml
+        qml/Genres.qml
+        qml/NewPopular.qml
         qml/Details.qml
-        qml/PlayerPage.qml
+        qml/Search.qml
         qml/SettingsPage.qml
-        qml/SearchPage.qml
-        qml/LibraryPage.qml
+        qml/PlayerPage.qml
+        qml/PlayerMenus.qml
+        qml/Scrubber.qml
+        qml/Hero.qml
+        qml/Card.qml
+        qml/MediaRow.qml
+        qml/Tile.qml
+        qml/Shimmer.qml
+        qml/Avatar.qml
+        qml/Icon.qml
+        qml/Btn.qml
+        qml/Toggle.qml
+        qml/Select.qml
+        qml/Seg.qml
         qml/CertDialog.qml
         qml/AutoTest.qml
-        qml/FlatButton.qml
         qml/Api.qml
         qml/Theme.qml
+        qml/Settings.qml
+        qml/Flags.qml
+        qml/Toast.qml
+        qml/Nav.qml
+        qml/Updates.qml
         qml/Util.js
+        qml/Seasonal.js
     SOURCES
         src/mpvitem.h
         src/backend.h

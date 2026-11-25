@@ -114,6 +114,8 @@ QtObject {
     // ----- the library -----
     function browsable(v) { return ["movies", "tvshows", "boxsets", "homevideos", "mixed", ""].indexOf((v.CollectionType || "").toLowerCase()) >= 0 }
     function views(cb) { firstThatExists("views", ["/UserViews?userId=" + session.userId, "/Users/" + session.userId + "/Views"], r => cb(r.ok ? r.data.Items.filter(browsable) : [])) }
+    /// Continue Watching is the canary: if even that fails it's a sign-in or connection problem worth showing.
+    function probe(cb) { firstThatExists("resume", ["/UserItems/Resume?userId=" + session.userId + "&Limit=1", "/Users/" + session.userId + "/Items/Resume?Limit=1"], r => cb(r.ok ? "" : (r.status ? "the server answered " + r.status : (r.error || "no answer")))) }
     function resume(cb) { firstThatExists("resume", ["/UserItems/Resume?userId=" + session.userId + "&Limit=20&MediaTypes=Video&Fields=" + fields, "/Users/" + session.userId + "/Items/Resume?Limit=20&MediaTypes=Video&Fields=" + fields], r => cb(r.ok ? r.data.Items : [])) }
     function nextUp(cb) { get("/Shows/NextUp?UserId=" + session.userId + "&Limit=20&Fields=" + fields, r => cb(r.ok ? r.data.Items : [])) }
     function latest(type, cb) { firstThatExists("latest", ["/Items/Latest?userId=" + session.userId + "&Limit=20&IncludeItemTypes=" + type + "&GroupItems=false&Fields=" + fields, "/Users/" + session.userId + "/Items/Latest?Limit=20&IncludeItemTypes=" + type + "&GroupItems=false&Fields=" + fields], r => cb(r.ok ? r.data : [])) }
@@ -124,6 +126,24 @@ QtObject {
     function search(term, cb) { items({ types: ["Movie", "Series"], search: term, limit: 60, lean: true }, r => cb(r.items)) }
     function setFavorite(id, on, cb) { call(on ? "POST" : "DELETE", "/UserFavoriteItems/" + Util.seg(id) + "?userId=" + session.userId, null, r => { if (r.status === 404 || r.status === 405) call(on ? "POST" : "DELETE", "/Users/" + session.userId + "/FavoriteItems/" + Util.seg(id), null, x => cb && cb(x.ok)); else if (cb) cb(r.ok) }) }
     function setPlayed(id, on, cb) { call(on ? "POST" : "DELETE", "/UserPlayedItems/" + Util.seg(id) + "?userId=" + session.userId, null, r => { if (r.status === 404 || r.status === 405) call(on ? "POST" : "DELETE", "/Users/" + session.userId + "/PlayedItems/" + Util.seg(id), null, x => cb && cb(x.ok)); else if (cb) cb(r.ok) }) }
+
+    function genres(opts, cb) {
+        var p = ["userId=" + session.userId, "SortBy=SortName", "SortOrder=Ascending", "IncludeItemTypes=" + ((opts && opts.types) || ["Movie", "Series"]).join(",")]
+        if (opts && opts.parentId) p.push("ParentId=" + opts.parentId)
+        get("/Genres?" + p.join("&"), r => cb(r.ok ? r.data.Items.map(g => g.Name) : []))
+    }
+    function byGenre(genre, cb) { items({ types: ["Movie", "Series"], genres: [genre], sortBy: "Random", limit: 20 }, r => cb(r.items)) }
+    function recommendations(cb) { get("/Movies/Recommendations?userId=" + session.userId + "&categoryLimit=3&itemLimit=14&Fields=" + fields, r => cb(r.ok ? r.data : [])) }
+    function extras(id, cb) {
+        var out = [], left = 2
+        var done = function () { if (--left === 0) cb(out) }
+        get("/Items/" + Util.seg(id) + "/LocalTrailers?userId=" + session.userId, r => { if (r.ok) out = r.data.concat(out); done() })
+        get("/Items/" + Util.seg(id) + "/SpecialFeatures?userId=" + session.userId, r => { if (r.ok) out = out.concat(r.data); done() })
+    }
+    function searchPeople(term, cb) { items({ types: ["Person"], search: term, limit: 24 }, r => cb(r.items)) }
+    function publicInfo(cb) { raw("GET", session.server + "/System/Info/Public", null, "", r => cb(r.ok ? r.data : null)) }
+    function publicUsers(server, cb) { raw("GET", server + "/Users/Public", null, "", r => cb(r.ok && Array.isArray(r.data) ? r.data.filter(u => u.Id && u.Name) : [])) }
+    function segments(id, cb) { get("/MediaSegments/" + Util.seg(id), r => cb(r.ok && r.data.Items ? r.data.Items.map(x => ({ type: String(x.Type), start: x.StartTicks / 1e7, end: x.EndTicks / 1e7 })) : [])) }
 
     // ----- pictures -----
     function image(id, tag, w, type) { if (!session) return ""; return session.server + "/Items/" + Util.seg(id) + "/Images/" + (type || "Primary") + "?maxWidth=" + w + (tag ? "&tag=" + encodeURIComponent(tag) : "") }
@@ -149,6 +169,7 @@ QtObject {
         if (it.ParentBackdropItemId && it.ParentBackdropImageTags && it.ParentBackdropImageTags.length) return image(it.ParentBackdropItemId, it.ParentBackdropImageTags[0], w, "Backdrop")
         return ""
     }
+    function trickplayUrl(id, mediaSourceId, width, tile) { return session.server + "/Videos/" + Util.seg(id) + "/Trickplay/" + width + "/" + tile + ".jpg?MediaSourceId=" + encodeURIComponent(mediaSourceId) + "&ApiKey=" + encodeURIComponent(session.token) }
     function openTarget(it) { return it.Type === "Episode" && it.SeriesId ? it.SeriesId : it.Id }
 
     // ----- playing -----

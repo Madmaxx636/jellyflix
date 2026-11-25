@@ -1,6 +1,7 @@
 #include "backend.h"
 
 #include <QCoreApplication>
+#include <QDesktopServices>
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QJSEngine>
@@ -51,6 +52,32 @@ QString Backend::authorization(const QString &token) const {
 
 QStringList Backend::trusted() const { return m_settings.value("trustedCertificates").toStringList(); }
 int Backend::trustedCertificates() const { return trusted().size(); }
+
+void Backend::fetchPublic(const QString &url, const QJSValue &callback) {
+    QNetworkRequest req{QUrl(url)};
+    req.setRawHeader("Accept", "application/vnd.github+json");
+    req.setRawHeader("User-Agent", "Jellyflix");
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    req.setTransferTimeout(15000);
+    QNetworkReply *reply = m_net.get(req);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, callback]() mutable {
+        const QByteArray bytes = reply->readAll();
+        QVariantMap result;
+        result["status"] = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        result["ok"] = reply->error() == QNetworkReply::NoError;
+        if (!result["ok"].toBool()) result["error"] = reply->errorString();
+        const QJsonDocument doc = QJsonDocument::fromJson(bytes);
+        if (!doc.isNull()) result["data"] = doc.toVariant();
+        reply->deleteLater();
+        QJSValue cb = callback;
+        if (cb.isCallable()) if (QJSEngine *engine = qjsEngine(this)) cb.call({engine->toScriptValue(result)});
+    });
+}
+
+void Backend::openUrl(const QString &url) {
+    const QUrl parsed(url);
+    if (parsed.scheme() == "https" || parsed.scheme() == "http") QDesktopServices::openUrl(parsed);
+}
 
 void Backend::trustCertificate(const QString &fingerprint) {
     QStringList list = trusted();
