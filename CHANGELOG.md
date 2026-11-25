@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.0.0 (2026-11-24)
+
+The app is rebuilt from scratch as a native program: no web engine, no Electron. Qt 6 draws the windows and mpv plays the video.
+
+### Changed
+- Every title is played as the file it is, by mpv, on your computer: every video and audio format (HEVC, AV1, AC3, E-AC3, DTS,
+  TrueHD, 10-bit...), every container and every kind of subtitle (including picture subtitles), with the computer's own video
+  decoder when it has one. The server never converts anything, so there is no waiting for it to start a conversion.
+- The four looks (Netflix, Hulu, HBO, Disney+) are drawn natively. This release has a Windows zip (everything inside) and a
+  Linux .deb (Qt and mpv inside, so it doesn't depend on the versions your distribution has). macOS and Android builds are not
+  part of it yet; the Android app stays at 0.5.0.
+- Sign-in guesses the address (a missing port, https or http, a pasted web link), and a server with a certificate it made
+  itself is shown once and asked about.
+
+### Not in yet (the 0.5 web-engine app has them; it stays on the releases page under its own versions)
+- The holiday banner, interface and player-controls size, back swipes, subtitle styling, the Settings for the player, My List
+  page, and updates that install themselves. Windows and macOS builds are not signed, and Linux is x64 only for now.
+
 ## 0.5.0 (2026-11-24)
 
 ### Added

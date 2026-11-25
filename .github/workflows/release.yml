@@ -1,10 +1,10 @@
 name: Release
 
-# Builds the app on each system. Pushing a tag like v0.1.2 also publishes a GitHub release with every file and its checksum.
+# Builds the app on each system. Pushing a tag like v0.5.1 (the web-engine app, kept for the 0.x versions; 1.x is the native app, see native.yml) also publishes a GitHub release with every file and its checksum.
 # Run it by hand (Actions > Release > Run workflow) to try the builds without releasing.
 on:
   push:
-    tags: ['v*']
+    tags: ['v0.*']
   workflow_dispatch:
 
 permissions:

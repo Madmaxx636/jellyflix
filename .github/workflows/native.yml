@@ -1,0 +1,200 @@
+name: Native app
+
+# Builds the native (Qt and mpv) app on each system and lets it check itself against a made-up Jellyfin server, with no window
+# and no sound. Pushing a tag like v1.0.0 also publishes a GitHub release with every package, the Android app and checksums.
+on:
+  push:
+    branches: [native]
+    tags: ['v1.*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.8.*
+          cache: true
+      - name: Libraries
+        run: sudo apt-get update && sudo apt-get install -y libmpv-dev ffmpeg libgl1-mesa-dev libxkbcommon-dev libegl1 libfontconfig1 libglib2.0-0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build
+        working-directory: native
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j4
+      - name: Self-test
+        run: native/tests/selftest.sh native/build/jellyflix
+      - name: Package as a .deb
+        run: |
+          version="${GITHUB_REF_NAME#v}"; [ "${GITHUB_REF_TYPE}" = tag ] || version=0.0.0~dev
+          cmake --install native/build --prefix AppDir/usr
+          base=https://github.com/linuxdeploy
+          wget -q "$base/linuxdeploy/releases/download/1-alpha-20250213-2/linuxdeploy-x86_64.AppImage"
+          wget -q "$base/linuxdeploy-plugin-qt/releases/download/1-alpha-20250213-1/linuxdeploy-plugin-qt-x86_64.AppImage"
+          chmod +x linuxdeploy*.AppImage
+          export QMAKE="$QT_ROOT_DIR/bin/qmake" QML_SOURCES_PATHS="$PWD/native/qml" DEPLOY_PLATFORM_THEMES=1
+          export LD_LIBRARY_PATH="$QT_ROOT_DIR/lib:$LD_LIBRARY_PATH"
+          # Gathers Qt, mpv and the libraries they need into AppDir (no AppImage is made from it).
+          ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run --appdir AppDir \
+            -e AppDir/usr/bin/jellyflix -d native/packaging/jellyflix.desktop -i native/packaging/jellyflix.png --plugin qt
+          # The .deb keeps it all in /opt/jellyflix, so it does not depend on the Qt or mpv versions the distribution has.
+          mkdir -p pkg/DEBIAN pkg/opt pkg/usr/bin pkg/usr/share/applications pkg/usr/share/icons/hicolor/512x512/apps out
+          cp -a AppDir pkg/opt/jellyflix
+          rm -f pkg/opt/jellyflix/AppRun pkg/opt/jellyflix/*.desktop pkg/opt/jellyflix/*.png pkg/opt/jellyflix/.DirIcon
+          ln -s /opt/jellyflix/usr/bin/jellyflix pkg/usr/bin/jellyflix
+          sed 's|^Exec=.*|Exec=/opt/jellyflix/usr/bin/jellyflix|' native/packaging/jellyflix.desktop > pkg/usr/share/applications/jellyflix.desktop
+          cp native/packaging/jellyflix.png pkg/usr/share/icons/hicolor/512x512/apps/jellyflix.png
+          size="$(du -sk pkg | cut -f1)"
+          cat > pkg/DEBIAN/control <<CONTROL
+          Package: jellyflix
+          Version: $version
+          Section: video
+          Priority: optional
+          Architecture: amd64
+          Maintainer: Jellyflix <noreply@users.noreply.github.com>
+          Installed-Size: $size
+          Depends: libc6, libgl1, libegl1, libx11-6, libxcb1, libxkbcommon0, libfontconfig1, libfreetype6, libglib2.0-0
+          Homepage: https://github.com/Madmaxx636/jellyflix
+          Description: Jellyfin client that plays everything
+           A native Jellyfin client with the look of the services you know. Plays every video, audio and subtitle format with
+           mpv, so the server never converts anything. Not affiliated with Jellyfin or any streaming service.
+          CONTROL
+          sed -i 's/^          //' pkg/DEBIAN/control
+          dpkg-deb --build --root-owner-group pkg "out/Jellyflix-$version-linux-amd64.deb"
+      - name: Self-test the installed .deb
+        run: |
+          sudo apt-get install -y ./out/*.deb
+          native/tests/selftest.sh /usr/bin/jellyflix
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jellyflix-native-linux
+          path: out/*.deb
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Libraries
+        run: brew install qt mpv ffmpeg dylibbundler
+      - name: Build
+        working-directory: native
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(brew --prefix qt)"
+          cmake --build build -j4
+      - name: Self-test
+        run: native/tests/selftest.sh native/build/jellyflix.app/Contents/MacOS/jellyflix
+      - name: Bundle Qt and mpv into the app
+        working-directory: native/build
+        run: |
+          # mpv and the libraries it needs first (Qt's own are left for macdeployqt, which knows how to bundle them)
+          mkdir -p jellyflix.app/Contents/Frameworks
+          dylibbundler -od -of -b -x jellyflix.app/Contents/MacOS/jellyflix -d jellyflix.app/Contents/Frameworks -p @executable_path/../Frameworks -i /opt/homebrew/opt/qt -i /usr/lib -i /System
+          # The test runs without a screen, which needs Qt's "offscreen" platform plugin; macdeployqt only brings the one for the screen.
+          mkdir -p jellyflix.app/Contents/PlugIns/platforms
+          cp "$(brew --prefix qt)/share/qt/plugins/platforms/libqoffscreen.dylib" jellyflix.app/Contents/PlugIns/platforms/
+          "$(brew --prefix qt)/bin/macdeployqt" jellyflix.app -qmldir=../qml -executable=jellyflix.app/Contents/PlugIns/platforms/libqoffscreen.dylib
+      - name: The bundled app needs nothing from Homebrew
+        working-directory: native/build
+        run: |
+          # Both bundling tools added the same library path; macOS refuses a program that lists it twice.
+          # (and in the libraries it brought: mpv's list two folders that were both rewritten to the same path)
+          for f in jellyflix.app/Contents/MacOS/jellyflix jellyflix.app/Contents/Frameworks/*.dylib; do
+            while [ "$(otool -l "$f" | grep -c 'path @executable_path/../Frameworks/')" -gt 1 ]; do
+              install_name_tool -delete_rpath @executable_path/../Frameworks/ "$f" 2>/dev/null
+            done
+          done
+          # Changing the program's library paths breaks its signature; macOS refuses an unsigned or badly signed program, so sign it again.
+          codesign --force --deep --sign - jellyflix.app
+          offenders="$(for f in jellyflix.app/Contents/MacOS/jellyflix jellyflix.app/Contents/Frameworks/*.dylib jellyflix.app/Contents/PlugIns/*/*.dylib; do otool -L "$f" | tail -n +2 | grep -E '/opt/homebrew|/usr/local/(opt|Cellar)' | sed "s|^|$f: |"; done || true)"
+          if [ -n "$offenders" ]; then echo "Still pointing at Homebrew:"; echo "$offenders"; exit 1; fi
+      - name: Self-test the bundled app
+        run: native/tests/selftest.sh native/build/jellyflix.app/Contents/MacOS/jellyflix
+      - name: Zip
+        run: ditto -c -k --keepParent native/build/jellyflix.app "$RUNNER_TEMP/Jellyflix-${GITHUB_REF_NAME#v}-macos-arm64.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jellyflix-native-macos
+          path: ${{ runner.temp }}/Jellyflix-*-macos-arm64.zip
+
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-toolchain mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-qt6-base mingw-w64-ucrt-x86_64-qt6-declarative mingw-w64-ucrt-x86_64-qt6-tools
+            mingw-w64-ucrt-x86_64-qt6-svg mingw-w64-ucrt-x86_64-mpv mingw-w64-ucrt-x86_64-ffmpeg mingw-w64-ucrt-x86_64-nodejs
+            mingw-w64-ucrt-x86_64-pkgconf
+      - name: Build
+        working-directory: native
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+      - name: Self-test
+        run: native/tests/selftest.sh native/build/jellyflix.exe
+      - name: Bundle Qt and mpv next to the program
+        working-directory: native/build
+        run: |
+          mkdir -p ../dist && cp jellyflix.exe ../dist/
+          windeployqt6 --qmldir ../qml --release --no-translations ../dist/jellyflix.exe
+          # the rest of the libraries the program and mpv need, found by asking the loader
+          for pass in 1 2 3; do
+            for f in ../dist/*.exe ../dist/*.dll ../dist/*/*.dll; do
+              ldd "$f" 2>/dev/null | awk '/ucrt64/ {print $3}' | while read -r lib; do cp -n "$lib" ../dist/ ; done
+            done
+          done
+          cd .. && powershell.exe -NoProfile -Command "Compress-Archive -Path '$(cygpath -w "$PWD/dist")\*' -DestinationPath '$(cygpath -w "$RUNNER_TEMP")\Jellyflix-${GITHUB_REF_NAME#v}-windows-x64.zip'"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jellyflix-native-windows
+          path: ${{ runner.temp }}/Jellyflix-*-windows-x64.zip
+
+  release:
+    needs: [linux, windows]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: files
+          pattern: jellyflix-native-{linux,windows}
+          merge-multiple: true
+      - name: Checksums and release notes
+        run: |
+          (cd files && sha256sum * > SHA256SUMS.txt)
+          version="${GITHUB_REF_NAME#v}"
+          {
+            echo 'Pick the file for your system: the `.zip` for Windows (unzip it anywhere and run `jellyflix.exe`) or the `.deb` for Debian, Ubuntu and their relatives (`sudo apt install ./Jellyflix-…-linux-amd64.deb`). macOS and Android builds are not part of this release yet.'
+            echo
+            echo 'The Windows build is not signed, so Windows SmartScreen will warn before the first start (More info > Run anyway).'
+            echo
+            awk -v v="$version" '$0 ~ "^## " v " " {f=1; next} /^## / {f=0} f' CHANGELOG.md
+            echo
+            echo '### SHA-256'
+            echo '```'
+            cat files/SHA256SUMS.txt
+            echo '```'
+          } > body.md
+      - name: Publish
+        run: gh release create "$GITHUB_REF_NAME" files/* --title "Jellyflix ${GITHUB_REF_NAME#v}" --notes-file body.md --verify-tag
+        env:
+          GH_TOKEN: ${{ github.token }}

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Jellyflix
+Comment=A Jellyfin client that plays everything, with the look of the services you know
+Exec=jellyflix
+Icon=jellyflix
+Categories=AudioVideo;Video;Player;
+Terminal=false
+StartupWMClass=jellyflix
