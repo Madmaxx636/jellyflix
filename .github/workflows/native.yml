@@ -80,7 +80,7 @@ jobs:
           # the libraries inside /opt/jellyflix are its own: they must not be turned into requirements (--no-rpm-autoreqprov)
           fpm -t rpm --iteration 1 --no-rpm-autoreqprov -d mesa-libGL -d mesa-libEGL -d libX11 -d libxcb -d libxkbcommon -d fontconfig -d freetype -d glib2 \
             -p "out/Jellyflix-$version-linux-x86_64.rpm" "${common[@]}"
-          fpm -t pacman --pacman-compression zst -d mesa -d libx11 -d libxcb -d libxkbcommon -d fontconfig -d freetype2 -d glib2 \
+          fpm -t pacman --pacman-compression zstd -d mesa -d libx11 -d libxcb -d libxkbcommon -d fontconfig -d freetype2 -d glib2 \
             -p "out/Jellyflix-$version-linux-x86_64.pkg.tar.zst" "${common[@]}"
           ls -la out
           rpm -qpl out/*.rpm | head -5; rpm -qp --requires out/*.rpm
@@ -176,6 +176,8 @@ jobs:
         run: |
           mkdir -p ../dist && cp jellyflix.exe ../dist/
           windeployqt6 --qmldir ../qml --release --no-translations ../dist/jellyflix.exe
+          # the self-test runs without a screen, which needs Qt's "offscreen" platform plugin (windeployqt only brings the one for the screen)
+          cp /ucrt64/share/qt6/plugins/platforms/qoffscreen.dll ../dist/platforms/
           # the rest of the libraries the program and mpv need, found by asking the loader
           for pass in 1 2 3; do
             for f in ../dist/*.exe ../dist/*.dll ../dist/*/*.dll; do
