@@ -106,6 +106,18 @@ series.forEach((s, si) => {
 const extraOf = (id, n) => ({ Id: `x-${id}-${n}`, Name: n === 1 ? 'Behind the Scenes' : 'Deleted Scene', Type: 'Video', RunTimeTicks: (4 + n) * 600_000_000, ImageTags: { Primary: 'p' }, UserData: {} })
 const trailerOf = id => ({ Id: `x-${id}-t`, Name: 'Official Trailer', Type: 'Trailer', RunTimeTicks: 2 * 600_000_000, ImageTags: { Primary: 'p' }, UserData: {} })
 
+// MOCK_HOLIDAYS=1: a few real holiday titles (and a Twilight Zone episode) for the holiday banner, and a bad Christmas horror film it must leave out.
+if (process.env.MOCK_HOLIDAYS === '1') {
+  const say = (n, y, rating, over) => ({ Name: n, ProductionYear: y, OfficialRating: rating, Overview: `${n} is a made-up description for testing.`, CommunityRating: 7.8, Genres: ['Comedy', 'Family'], ...over })
+  ;[say("It's a Wonderful Life", 1946, 'G'), say('Home Alone', 1990, 'PG'), say('Elf', 2003, 'PG'), say('A Charlie Brown Thanksgiving', 1973, 'G'),
+    say('Planes, Trains and Automobiles', 1987, 'R'), say("Santa's Slay", 2005, 'R', { CommunityRating: 4.4, Genres: ['Horror'], Tags: ['christmas'] }),
+    say('Frosty Fright Night', 2019, 'PG-13', { CommunityRating: 3.9, Genres: ['Horror'], Tags: ['christmas'] })].forEach((o, k) => Object.assign(movies[10 + k], o))
+  series[0].Name = 'The Twilight Zone'
+  const ep = episodes.find(e => e.SeriesId === series[0].Id && e.ParentIndexNumber === 1 && e.IndexNumber === 2)
+  episodes.filter(e => e.SeriesId === series[0].Id).forEach(e => { e.SeriesName = 'The Twilight Zone' })
+  if (ep) ep.Name = 'The Night of the Meek'
+}
+
 const all = new Map([...movies, ...series, ...boxsets, ...views, ...episodes, ...people].map(x => [x.Id, x]))
 const get = id => all.get(id) ?? (id.startsWith('x-') ? { Id: id, Name: 'Extra', Type: 'Video', ord: hash(id) % 500 } : undefined)
 const ud = new Map() // id -> { IsFavorite, Played } overrides made through the API
@@ -322,6 +334,7 @@ const handler = async (req, res) => {
   if (p === '/Users/u1/Items/Latest' && oldStyle) return latest()
   if (p === '/Items/Latest' && newStyle) return latest()
   if (p === '/Genres') return json(res, { Items: GENRES.map(Name => ({ Name, Id: `g-${Name}`, Type: 'Genre' })) })
+  if (p === '/Items' && q.get('Ids')) { const want = q.get('Ids').split(','); return json(res, { Items: want.map(get).filter(Boolean).map(V), TotalRecordCount: want.length }) } // by id, as the real server does
   if ((p === '/Users/u1/Items' && oldStyle) || p === '/Items') return json(res, queryItems(q))
   if ((m = p.match(/^\/Users\/u1\/Items\/([^/]+)$/)) && oldStyle) return one(m[1])
   if ((m = p.match(/^\/Items\/([^/]+)$/)) && newStyle) return one(m[1])

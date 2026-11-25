@@ -50,7 +50,7 @@ QtObject {
     }
 
     function itemsQuery(q) {
-        var p = ["userId=" + session.userId, "Fields=" + (q.lean ? leanFields : fields),
+        var p = ["userId=" + session.userId, "Fields=" + (q.fields ? q.fields : (q.lean ? leanFields : fields)),
                  "EnableTotalRecordCount=" + (q.start ? "false" : "true"), "CollapseBoxSetItems=false", "Recursive=true"]
         if (q.parentId) p.push("ParentId=" + q.parentId)
         if (q.types && q.types.length) p.push("IncludeItemTypes=" + q.types.join(","))
@@ -60,6 +60,8 @@ QtObject {
         if (q.start) p.push("StartIndex=" + q.start)
         if (q.limit) p.push("Limit=" + q.limit)
         if (q.search) p.push("SearchTerm=" + encodeURIComponent(q.search))
+        if (q.noImages) p.push("EnableImages=false")
+        if (q.ids && q.ids.length) p.push("Ids=" + q.ids.join(","))
         if (q.tags && q.tags.length) p.push("Tags=" + encodeURIComponent(q.tags.join("|")))
         return p.join("&")
     }

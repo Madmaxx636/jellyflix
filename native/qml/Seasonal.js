@@ -114,33 +114,83 @@ function inBatches(list, work, done) {
     pump()
 }
 
+// What the scan asks for: enough to judge a title without its pictures or its description.
+var SCAN = "ProductionYear,OfficialRating,CommunityRating,Genres,Tags"
+
+/// Reads a whole kind of title from the library (500 at a time, names and the facts above only), so that matching doesn't depend on
+/// how the server's own search treats punctuation, accents or short words.
+function scan(api, types, cb) {
+    var all = [], total = null
+    var page = function () {
+        api.items({ types: types, limit: 500, start: all.length, sortBy: "SortName", fields: SCAN, noImages: true }, function (r) {
+            if (total === null) total = r.total
+            all = all.concat(r.items)
+            if (!r.items.length || all.length >= total || all.length >= 20000) cb(all); else page()
+        })
+    }
+    page()
+}
+
+function wordsOf(name) { return norm(name).split(" ") }
+
+/// Does the name or tag list of a title say it belongs to the season?
+function looksLike(it, season) {
+    var words = wordsOf(it.Name)
+    for (var i = 0; i < season.names.length; i++) if (words.indexOf(season.names[i]) >= 0 || norm(it.Name).indexOf(season.names[i]) >= 0) return true
+    var tags = (it.Tags || []).map(function (t) { return String(t).toLowerCase() })
+    for (var j = 0; j < season.tags.length; j++) if (tags.indexOf(season.tags[j]) >= 0) return true
+    return false
+}
+
+/// The picks for one season from the movies and series the scan found: the library's classics first, then the best of what looks like the season.
+function chooseFrom(movies, series, season, style) {
+    var data = DATA[season.id], known = [], seen = {}
+    data.movies.forEach(function (w) { movies.forEach(function (it) { if (!seen[it.Id] && matchesClassic(it, w)) { seen[it.Id] = true; known.push(it) } }) })
+    var extra = movies.filter(function (it) {
+        if (seen[it.Id]) return false
+        var fits = looksLike(it, season) || (season.genres.length && (it.Genres || []).some(function (g) { return season.genres.indexOf(g) >= 0 }))
+        return fits && (style === "all" || qualifies(it, season))
+    })
+    extra.sort(function (a, b) { return score(b) - score(a) })
+    known.sort(function (a, b) { return score(b) - score(a) })
+    // holiday episodes: the series from the list that the library has
+    var wantedSeries = []
+    data.episodes.forEach(function (w) {
+        var hit = series.find(function (s) { return norm(s.Name).indexOf(norm(w.series)) >= 0 })
+        if (hit && wantedSeries.indexOf(hit.Id) < 0) wantedSeries.push(hit.Id)
+    })
+    return { known: known, extra: extra.slice(0, 40), seriesIds: wantedSeries }
+}
+
 function picksFor(api, season, style, cb) {
-    var data = DATA[season.id], known = [], found = [], left = 2
-    var check = function () {
-        if (--left > 0) return
-        var knownIds = {}; known.forEach(function (i) { knownIds[i.Id] = true })
-        var extra = dedupe(found).filter(function (i) { return !knownIds[i.Id] && (style === "all" || qualifies(i, season)) })
-        extra.sort(function (a, b) { return score(b) - score(a) })
-        var k = dedupe(known).sort(function (a, b) { return score(b) - score(a) })
-        cb(k.concat(extra).slice(0, style === "all" ? 24 : 12), { classics: k.length, others: extra.length, candidates: dedupe(found).length })
-    }
-    // the classics, by name
-    var jobs = data.movies.map(function (w) { return { movie: w } }).concat(data.episodes.map(function (w) { return { episode: w } }))
-    var word = function (title) {
-        var words = String(title).replace(/[^A-Za-z0-9 ]+/g, " ").split(/\s+/).filter(function (w) { return w.length >= 3 })
-        return words.sort(function (a, b) { return b.length - a.length })[0] || String(title)
-    }
-    inBatches(jobs, function (job, done) {
-        var q = job.movie ? { types: ["Movie"], search: word(job.movie.title), limit: 40 } : { types: ["Episode"], search: word(job.episode.title), limit: 60 }
-        api.items(q, function (r) { done(r.items.filter(function (i) { return job.movie ? matchesClassic(i, job.movie) : matchesEpisode(i, job.episode) })) })
-    }, function (lists) { lists.forEach(function (l) { known = known.concat(l || []) }); check() })
-    // whatever else looks like the season
-    var asks = [], got = 0
-    if (season.tags.length) asks.push({ types: ["Movie"], tags: season.tags, limit: 30 })
-    season.names.forEach(function (n) { asks.push({ types: ["Movie"], search: n, limit: 30 }) })
-    season.genres.forEach(function (g) { asks.push({ types: ["Movie"], genres: [g], sortBy: "CommunityRating", sortOrder: "Descending", limit: 30 }) })
-    if (!asks.length) { check(); return }
-    asks.forEach(function (q) { api.items(q, function (r) { found = found.concat(r.items); if (++got === asks.length) check() }) })
+    var data = DATA[season.id], libraryMovies = [], librarySeries = []
+    scan(api, ["Movie"], function (movies) {
+        libraryMovies = movies
+        scan(api, ["Series"], function (series) {
+            librarySeries = series
+            var c = chooseFrom(movies, series, season, style)
+            // holiday episodes: ask each wanted series for its episodes and keep the ones named in the list
+            var episodes = []
+            inBatches(c.seriesIds, function (id, done) {
+                api.get("/Shows/" + id + "/Episodes?UserId=" + api.session.userId + "&Fields=" + api.fields, function (r) { done(r.ok ? r.data.Items : []) })
+            }, function (lists) {
+                var all = []; lists.forEach(function (l) { all = all.concat(l || []) })
+                data.episodes.forEach(function (w) { all.forEach(function (it) { if (matchesEpisode(it, w) && !episodes.some(function (e) { return e.Id === it.Id })) episodes.push(it) }) })
+                // the movies are only listed so far (no pictures or descriptions): ask for the ones chosen, in one go
+                var limit = style === "all" ? 24 : 12
+                var chosen = c.known.concat(c.extra).slice(0, Math.max(0, limit - episodes.length))
+                var finish = function (full) {
+                    var order = {}; chosen.forEach(function (it, i) { order[it.Id] = i })
+                    full.sort(function (a, b) { return order[a.Id] - order[b.Id] })
+                    // classics first, the library's holiday episodes among them
+                    var out = episodes.concat(full).slice(0, limit)
+                    cb(out, { classics: c.known.length + episodes.length, others: c.extra.length, candidates: libraryMovies.length })
+                }
+                if (!chosen.length) { finish([]); return }
+                api.items({ ids: chosen.map(function (it) { return it.Id }), limit: chosen.length }, function (r) { finish(r.items) })
+            })
+        })
+    })
 }
 
 /// Picks for every season that applies, taking turns between seasons. Finding them takes a few dozen requests, so each season's picks
@@ -148,7 +198,7 @@ function picksFor(api, season, style, cb) {
 function holidayPicks(api, seasons, style, cb, store) {
     var lists = [], left = seasons.length, TTL = 12 * 60 * 60 * 1000, report = []
     if (!left) { cb({ items: [], labels: ({}) }); return }
-    var key = function (season) { return "holiday2." + api.session.server + "|" + api.session.userId + "." + season.id + "." + style }
+    var key = function (season) { return "holiday3." + api.session.server + "|" + api.session.userId + "." + season.id + "." + style }
     var combine = function () {
         var out = [], labels = {}
         for (var i = 0; lists.some(function (l) { return i < l.items.length }); i++) {
@@ -161,7 +211,7 @@ function holidayPicks(api, seasons, style, cb, store) {
         try { var raw = store && store.get(key(season)); if (raw) { var p = JSON.parse(raw); if (Date.now() - p.at < TTL) kept = p.items } } catch (e) { kept = null }
         var finish = function (items, stats) {
             lists[si] = { season: season, items: items }
-            report.push(season.title + ": " + items.length + " shown" + (stats ? " (" + stats.classics + " from the classics list, " + stats.others + " other matches of " + stats.candidates + " looked at)" : " (kept from earlier)"))
+            report.push(season.title + ": " + items.length + " shown" + (stats ? " (" + stats.classics + " from the classics list, " + stats.others + " other matches, in a library of " + stats.candidates + " movies)" : " (kept from earlier)"))
             if (--left === 0) combine()
         }
         if (kept) { finish(kept, null); return }

@@ -83,7 +83,13 @@ Item {
             check("home: it lists the libraries and hides Music", h.views.length > 0 && !h.views.some(v => v.CollectionType === "music"), h.views.map(v => v.Name).join(", "))
             if (Backend.shotsDir !== "") { shots(); return }
             until("home: the genre rows follow, after the first screen", () => h.genreRows.length > 0, function () {
-                if (Seasonal.seasonsFor(new Date()).length > 0) until("home: the holiday banner says what it found", () => Nav.holidayReport !== "" && h.heroItems.length > 0 && Object.keys(h.heroLabels).length > 0, function () { console.log("REPORT " + Nav.holidayReport) }, 20000)
+                if (Seasonal.seasonsFor(new Date()).length > 0) until("home: the holiday banner says what it found", () => Nav.holidayReport !== "" && h.heroItems.length > 0 && Object.keys(h.heroLabels).length > 0, function () {
+                    console.log("REPORT " + Nav.holidayReport)
+                    var names = h.holiday.items.map(i => i.Name)
+                    check("holiday: it finds the library's classics (movies) and leaves out bad horror with a Christmas tag", names.indexOf("Home Alone") >= 0 && names.indexOf("It's a Wonderful Life") >= 0 && names.indexOf("Santa's Slay") < 0 && names.indexOf("Frosty Fright Night") < 0, names.join(", "))
+                    check("holiday: it finds the Twilight Zone Christmas episode", h.holiday.items.some(i => i.Type === "Episode" && i.Name === "The Night of the Meek"), h.holiday.items.filter(i => i.Type === "Episode").map(i => i.Name).join(", "))
+                    check("holiday: the banner shows them, labelled", h.heroItems.length > 0 && h.heroItems.every(i => h.heroLabels[i.Id] !== undefined), h.heroItems.map(i => i.Name).join(", "))
+                }, 30000)
                 Nav.openTitle(h.movies[0])
                 details(h.movies[0])
             })
