@@ -49,6 +49,8 @@ int main(int argc, char *argv[]) {
     QGuiApplication::setApplicationName("Jellyflix");
     QGuiApplication::setOrganizationName("jellyflix");
     QGuiApplication::setApplicationVersion(QStringLiteral(JELLYFLIX_VERSION));
+    // The desktop environment matches a window to its icon through this name (jellyflix.desktop); without it the icon is not found.
+    QGuiApplication::setDesktopFileName("jellyflix");
     QGuiApplication::setWindowIcon(QIcon(":/packaging/jellyflix.png"));
     QQuickStyle::setStyle("Basic");
 

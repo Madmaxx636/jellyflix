@@ -164,6 +164,13 @@ QtObject {
         if (it.ParentBackdropItemId && it.ParentBackdropImageTags && it.ParentBackdropImageTags.length) return image(it.ParentBackdropItemId, it.ParentBackdropImageTags[0], w, "Backdrop")
         return it.ImageTags && it.ImageTags.Primary ? image(it.Id, it.ImageTags.Primary, w) : ""
     }
+    /// An episode's own picture first (its still), then the wide art of the title.
+    function still(it, w) {
+        w = w || 400
+        if (!session) return ""
+        if (it.ImageTags && it.ImageTags.Primary) return image(it.Id, it.ImageTags.Primary, w)
+        return thumb(it, w)
+    }
     function backdrop(it, w) {
         w = w || 1920
         if (!session) return ""

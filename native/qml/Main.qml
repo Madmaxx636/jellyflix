@@ -166,14 +166,22 @@ ApplicationWindow {
 
     // ---- a newer release ----
     Rectangle {
-        visible: Updates.newest !== "" && !Updates.dismissed && win.signedIn && !player.active
+        visible: Updates.newest !== "" && (!Updates.dismissed || Updates.busy || Updates.error !== "") && win.signedIn && !player.active
         anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 24 * win.zoom
-        width: upRow.implicitWidth + 28; height: 52; radius: Theme.radius; color: "#262626"; border.color: Theme.line; z: 60
+        width: Math.min(parent.width - 48, upRow.implicitWidth + 28); height: upCol.implicitHeight + 24; radius: Theme.radius; color: "#262626"; border.color: Theme.line; z: 60
         Rectangle { width: 4; height: parent.height; radius: 2; color: Theme.accent }
-        Row { id: upRow; anchors.verticalCenter: parent.verticalCenter; x: 18; spacing: 12
-            Text { anchors.verticalCenter: parent.verticalCenter; text: "Version " + Updates.newest + " is out."; color: "white"; font.pixelSize: 14 }
-            Btn { anchors.verticalCenter: parent.verticalCenter; small: true; primary: true; text: "Download"; onClicked: Backend.openUrl(Updates.url) }
-            Btn { anchors.verticalCenter: parent.verticalCenter; small: true; text: "Later"; onClicked: Updates.dismissed = true } }
+        Column {
+            id: upCol; x: 18; y: 12; spacing: 8
+            Row { id: upRow; spacing: 12
+                Text { anchors.verticalCenter: parent.verticalCenter; color: "white"; font.pixelSize: 14
+                    text: Updates.installing ? "Installing version " + Updates.newest + "…" : (Updates.progress >= 0 ? "Downloading version " + Updates.newest + "… " + Math.round(Updates.progress * 100) + "%" : "Version " + Updates.newest + " is out.") }
+                Btn { visible: !Updates.busy && Updates.canInstall; anchors.verticalCenter: parent.verticalCenter; small: true; primary: true; text: "Update now"; onClicked: Updates.install() }
+                Btn { visible: !Updates.busy; anchors.verticalCenter: parent.verticalCenter; small: true; primary: !Updates.canInstall; text: Updates.canInstall ? "Release page" : "Download"; onClicked: Backend.openUrl(Updates.url) }
+                Btn { visible: !Updates.busy; anchors.verticalCenter: parent.verticalCenter; small: true; text: "Later"; onClicked: { Updates.dismissed = true; Updates.error = "" } }
+            }
+            Rectangle { visible: Updates.progress >= 0; width: upRow.implicitWidth; height: 4; radius: 2; color: "#444"; Rectangle { width: parent.width * Math.max(0, Updates.progress); height: parent.height; radius: 2; color: Theme.accent } }
+            Text { visible: Updates.error !== ""; width: Math.min(460, win.width * 0.8); wrapMode: Text.Wrap; text: Updates.error; color: "#ff6b6b"; font.pixelSize: 13 }
+        }
     }
     Timer { interval: 3000; running: Settings.autoUpdate; onTriggered: Updates.check(false) }
     Timer { interval: 6 * 60 * 60 * 1000; repeat: true; running: Settings.autoUpdate; onTriggered: Updates.check(false) }

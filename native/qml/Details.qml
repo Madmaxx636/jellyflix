@@ -125,7 +125,8 @@ PageBase {
                             Item {
                                 width: 168; height: 94; anchors.verticalCenter: parent.verticalCenter
                                 Rectangle { anchors.fill: parent; radius: Theme.radius; color: Theme.card; clip: true
-                                    Image { anchors.fill: parent; source: Api.thumb(modelData, 400); fillMode: Image.PreserveAspectCrop; asynchronous: true }
+                                    Image { id: stillArt; anchors.fill: parent; source: Api.still(modelData, 400); fillMode: Image.PreserveAspectCrop; asynchronous: true; sourceSize.width: 400 }
+                                    Text { visible: stillArt.status !== Image.Ready; anchors.centerIn: parent; text: "E" + (modelData.IndexNumber || ""); color: Theme.muted; font.pixelSize: 22 }
                                     Rectangle { anchors.fill: parent; color: Qt.rgba(0, 0, 0, 0.45); opacity: epHover.hovered ? 1 : 0; Icon { anchors.centerIn: parent; name: "play"; size: 22 } }
                                     Rectangle { visible: modelData.UserData && modelData.UserData.PlayedPercentage > 0 && modelData.UserData.PlayedPercentage < 100; anchors.bottom: parent.bottom; height: 4; width: parent.width; color: Qt.rgba(0, 0, 0, 0.6)
                                         Rectangle { height: parent.height; width: modelData.UserData ? parent.width * modelData.UserData.PlayedPercentage / 100 : 0; color: Theme.accent } }

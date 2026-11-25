@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import Jellyflix
 import "Util.js" as Util
 
@@ -48,6 +47,7 @@ FocusScope {
             clip: true
             Rectangle { anchors.fill: parent; radius: Theme.radius; color: Theme.card }
             Image {
+                id: art
                 anchors.fill: parent
                 source: card.item ? (card.wide ? Api.thumb(card.item, Math.round(card.cw * 2)) : Api.poster(card.item, Math.round(card.cw * 2))) : ""
                 fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: true; smooth: true
@@ -55,12 +55,13 @@ FocusScope {
                 visible: status === Image.Ready
             }
             Text {
-                visible: card.item && !(card.item.ImageTags && (card.item.ImageTags.Primary || card.item.ImageTags.Thumb)) && !(card.item.BackdropImageTags && card.item.BackdropImageTags.length)
+                // no picture at all, or one that could not be loaded: the name stands in for it
+                visible: art.status !== Image.Ready && (art.status === Image.Error || art.source == "" || (card.item && !(card.item.ImageTags && (card.item.ImageTags.Primary || card.item.ImageTags.Thumb)) && !(card.item.BackdropImageTags && card.item.BackdropImageTags.length)))
                 anchors.fill: parent; anchors.margins: 10; text: card.item ? card.item.Name : ""; color: Theme.muted; wrapMode: Text.Wrap; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
             }
             // wide tiles show their name on the picture
             Rectangle {
-                visible: card.wide && !card.lit && !Nav.touch
+                visible: (card.wide || Settings.posterTitles) && !card.lit && art.status === Image.Ready
                 anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 44
                 gradient: Gradient { GradientStop { position: 0; color: "transparent" } GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 0.85) } }
                 Text { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 10; anchors.bottomMargin: 8; text: card.label; color: "white"; font.pixelSize: 14; font.weight: Font.DemiBold; elide: Text.ElideRight }
@@ -98,10 +99,7 @@ FocusScope {
                 anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 4; color: Qt.rgba(0, 0, 0, 0.6)
                 Rectangle { height: parent.height; width: card.item && card.item.UserData ? parent.width * card.item.UserData.PlayedPercentage / 100 : 0; color: Theme.accent }
             }
-            layer.enabled: Theme.radius >= 8
-            layer.effect: MultiEffect { maskEnabled: true; maskSource: mask; maskThresholdMin: 0.5; maskSpreadAtMin: 1 }
         }
-        Item { id: mask; anchors.fill: parent; layer.enabled: true; visible: false; Rectangle { anchors.fill: parent; radius: Theme.radius } }
     }
     MouseArea { id: mouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; z: -1; onClicked: { card.forceActiveFocus(); Nav.openTitle(card.item) } }
     Keys.onReturnPressed: Nav.openTitle(card.item)

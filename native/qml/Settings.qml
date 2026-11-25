@@ -38,11 +38,12 @@ QtObject {
     property string hwdec: "auto-safe"
     property string touchMode: "auto"       // auto, on, off
     property bool autoUpdate: true
+    property bool posterTitles: true          // a title on every poster, not only on hover
     property bool touched: false           // the last thing used was a touch screen (not saved)
 
     readonly property var keys: ["autoplayNext", "skipIntro", "audioLang", "subtitleMode", "subtitleLang", "speed", "cardSize", "showHero", "rotateHero",
         "reduceMotion", "scale", "controlsScale", "hoverControls", "controlsHide", "rememberVolume", "subSize", "subColor", "subBackground", "externalPlayer",
-        "seasonalStyle", "touchMode", "autoUpdate", "rowContinue", "rowNextUp", "rowMyList", "rowSeasonal", "rowRecommended", "rowRecent", "rowTopRated", "genreRows", "hwdec"]
+        "seasonalStyle", "touchMode", "autoUpdate", "posterTitles", "rowContinue", "rowNextUp", "rowMyList", "rowSeasonal", "rowRecommended", "rowRecent", "rowTopRated", "genreRows", "hwdec"]
     readonly property var defaults: ({})
 
     function load() {
@@ -91,4 +92,5 @@ QtObject {
     onHwdecChanged: save()
     onTouchModeChanged: save()
     onAutoUpdateChanged: save()
+    onPosterTitlesChanged: save()
 }

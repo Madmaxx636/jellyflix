@@ -1,6 +1,10 @@
 #include "backend.h"
 
 #include <QCoreApplication>
+#include <QDir>
+#include <QFile>
+#include <QTimer>
+#include <QUrl>
 #include <QDesktopServices>
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -8,7 +12,9 @@
 #include <QJsonDocument>
 #include <QRegularExpression>
 #include <QNetworkReply>
+#include <QFileInfo>
 #include <QNetworkRequest>
+#include <QProcess>
 #include <QProcess>
 #include <QSslCertificate>
 #include <QSslConfiguration>
@@ -162,4 +168,142 @@ bool Backend::openExternal(const QString &player, const QString &url, const QStr
     const QString shown = QString(title).replace(QRegularExpression("[\\r\\n]+"), " ").left(200);
     const QStringList args = player == "mpv" ? QStringList{"--force-media-title=" + shown, "--", url} : QStringList{"--meta-title=" + shown, "--", url};
     return QProcess::startDetached(program, args);
+}
+
+// ---------------------------------------------------------------- updates
+
+QString Backend::updateUrl() const {
+    const QString test = qEnvironmentVariable("JELLYFLIX_UPDATE_URL");
+    return test.isEmpty() ? QStringLiteral("https://api.github.com/repos/Madmaxx636/jellyflix/releases/latest") : test;
+}
+
+QString Backend::updateKind() const {
+#if defined(Q_OS_WIN)
+    return "windows";
+#elif defined(Q_OS_MACOS)
+    return "";
+#else
+    // Only a copy installed from our own package can be updated by installing the next one.
+    const bool installed = QCoreApplication::applicationFilePath().startsWith("/opt/jellyflix/") || !qEnvironmentVariableIsEmpty("JELLYFLIX_TEST_SERVER");
+    if (!installed) return "";
+    QString like;
+    QFile release("/etc/os-release");
+    if (release.open(QIODevice::ReadOnly)) {
+        for (const QByteArray &line : release.readAll().split('\n'))
+            if (line.startsWith("ID=") || line.startsWith("ID_LIKE=")) like += " " + QString::fromUtf8(line.mid(line.indexOf('=') + 1)).remove('"').toLower();
+    }
+    auto has = [](const char *p) { return !QStandardPaths::findExecutable(p).isEmpty(); };
+    if (like.contains("debian") || like.contains("ubuntu")) return "deb";
+    if (like.contains("arch")) return "pacman";
+    if (like.contains("fedora") || like.contains("rhel") || like.contains("suse") || like.contains("centos")) return "rpm";
+    if (has("dpkg")) return "deb";
+    if (has("pacman")) return "pacman";
+    if (has("dnf") || has("zypper") || has("rpm")) return "rpm";
+    return "";
+#endif
+}
+
+namespace {
+bool allowedUpdateHost(const QUrl &url) {
+    if (!qEnvironmentVariableIsEmpty("JELLYFLIX_TEST_SERVER") && (url.host() == "127.0.0.1" || url.host() == "localhost")) return true;
+    if (url.scheme() != "https") return false;
+    const QString host = url.host().toLower();
+    return host == "github.com" || host.endsWith(".github.com") || host.endsWith(".githubusercontent.com");
+}
+} // namespace
+
+void Backend::fetchText(const QString &url, const QJSValue &callback) {
+    const QUrl parsed(url);
+    QVariantMap result;
+    if (!allowedUpdateHost(parsed)) { result["ok"] = false; result["error"] = "That address is not allowed."; QJSValue cb = callback; if (cb.isCallable()) if (QJSEngine *e = qjsEngine(this)) cb.call({e->toScriptValue(result)}); return; }
+    QNetworkRequest req{parsed};
+    req.setRawHeader("User-Agent", "Jellyflix");
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    req.setTransferTimeout(20000);
+    QNetworkReply *reply = m_net.get(req);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, callback]() mutable {
+        QVariantMap r;
+        r["ok"] = reply->error() == QNetworkReply::NoError;
+        r["text"] = QString::fromUtf8(reply->readAll());
+        if (!r["ok"].toBool()) r["error"] = reply->errorString();
+        reply->deleteLater();
+        QJSValue cb = callback;
+        if (cb.isCallable()) if (QJSEngine *e = qjsEngine(this)) cb.call({e->toScriptValue(r)});
+    });
+}
+
+void Backend::downloadUpdate(const QString &url, const QString &fileName, const QString &sha256, const QJSValue &progress, const QJSValue &done) {
+    auto finish = [this, done](const QVariantMap &r) { QJSValue cb = done; if (cb.isCallable()) if (QJSEngine *e = qjsEngine(this)) cb.call({e->toScriptValue(r)}); };
+    const QUrl parsed(url);
+    const QString safeName = QFileInfo(fileName).fileName();   // no folders in the name
+    if (!allowedUpdateHost(parsed) || safeName.isEmpty() || sha256.size() != 64) { finish({{"ok", false}, {"error", "This update can't be downloaded safely."}}); return; }
+    QDir dir(QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/jellyflix-update");
+    dir.removeRecursively();
+    dir.mkpath(".");
+    auto *file = new QFile(dir.filePath(safeName));
+    if (!file->open(QIODevice::WriteOnly)) { delete file; finish({{"ok", false}, {"error", "Couldn't write the download to disk."}}); return; }
+    QNetworkRequest req{parsed};
+    req.setRawHeader("User-Agent", "Jellyflix");
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    req.setTransferTimeout(60000);
+    QNetworkReply *reply = m_net.get(req);
+    auto hash = std::make_shared<QCryptographicHash>(QCryptographicHash::Sha256);
+    connect(reply, &QNetworkReply::readyRead, this, [reply, file, hash]() { const QByteArray chunk = reply->readAll(); hash->addData(chunk); file->write(chunk); });
+    connect(reply, &QNetworkReply::downloadProgress, this, [this, progress](qint64 got, qint64 total) {
+        QJSValue cb = progress;
+        if (total > 0 && cb.isCallable()) if (QJSEngine *e = qjsEngine(this)) cb.call({double(got) / double(total)});
+    });
+    connect(reply, &QNetworkReply::finished, this, [reply, file, hash, sha256, finish]() mutable {
+        file->write(reply->readAll());
+        file->close();
+        const QString path = file->fileName();
+        const bool ok = reply->error() == QNetworkReply::NoError;
+        const QString error = reply->errorString();
+        reply->deleteLater();
+        file->deleteLater();
+        if (!ok) { QFile::remove(path); finish({{"ok", false}, {"error", "The download failed: " + error}}); return; }
+        const QString actual = QString::fromLatin1(hash->result().toHex());
+        if (actual.compare(sha256, Qt::CaseInsensitive) != 0) { QFile::remove(path); finish({{"ok", false}, {"error", "The download doesn't match its checksum, so it was thrown away."}}); return; }
+        finish({{"ok", true}, {"path", path}});
+    });
+}
+
+QString Backend::installUpdate(const QString &path) {
+    const QString kind = updateKind();
+    if (kind.isEmpty() || !QFile::exists(path)) return {};
+    const bool dry = qEnvironmentVariableIntValue("JELLYFLIX_UPDATE_DRYRUN") == 1;
+    QString program;
+    QStringList args;
+    if (kind == "windows") {
+        // The installer closes this program, replaces it, and starts the new one (see jellyflix.iss).
+        program = path;
+        args = {"/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS", "/RELAUNCH=1"};
+    } else if (kind == "deb") { program = "pkexec"; args = {"env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "install", "-y", path}; }
+    else if (kind == "pacman") { program = "pkexec"; args = {"pacman", "-U", "--noconfirm", path}; }
+    else if (!QStandardPaths::findExecutable("dnf").isEmpty()) { program = "pkexec"; args = {"dnf", "install", "-y", path}; }
+    else { program = "pkexec"; args = {"zypper", "--non-interactive", "install", "--allow-unsigned-rpm", path}; }
+    const QString shown = program + " " + args.join(" ");
+    if (dry) { QTimer::singleShot(50, this, [this, shown] { emit updateInstallFinished(true, "would run: " + shown); }); return shown; }
+
+    if (kind == "windows") {
+        if (!QProcess::startDetached(program, args)) return {};
+        QTimer::singleShot(400, qApp, &QCoreApplication::quit);   // the installer needs this program closed
+        return shown;
+    }
+    if (QStandardPaths::findExecutable(program).isEmpty()) return {};
+    auto *p = new QProcess(this);
+    connect(p, &QProcess::finished, this, [this, p](int code, QProcess::ExitStatus) {
+        const QString err = QString::fromUtf8(p->readAllStandardError()).trimmed();
+        p->deleteLater();
+        if (code == 0) {
+            // start the new version a moment after this one has gone, so it isn't mistaken for a second window
+            QProcess::startDetached("/bin/sh", {"-c", "sleep 1; exec /usr/bin/jellyflix"});
+            emit updateInstallFinished(true, QString());
+            QTimer::singleShot(200, qApp, &QCoreApplication::quit);
+        } else {
+            emit updateInstallFinished(false, code == 126 || code == 127 ? "The update was not allowed (the password prompt was cancelled)." : "The package manager stopped: " + err.left(300));
+        }
+    });
+    p->start(program, args);
+    return shown;
 }

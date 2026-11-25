@@ -11,14 +11,18 @@ home="$(mktemp -d)"
 media="$(cd "$root" && node -e "import('./tests/e2e/lib/clip.mjs').then(m => console.log(m.ensureClip()))")"
 [ -n "$media" ] || { echo "ffmpeg is needed to make the test clip"; exit 2; }
 
-PORT="$port" MOCK_HOLIDAYS=1 MOCK_MODE=directplay MOCK_MEDIA="$media" node "$root/tests/e2e/lib/mock-jellyfin.mjs" >/dev/null 2>&1 &
+# real JPEG pictures (not the made-up server's SVG ones): a package missing its JPEG support must not pass
+art="$home/art"; mkdir -p "$art"
+for kind in Primary Backdrop Thumb; do ffmpeg -loglevel error -y -f lavfi -i "color=c=0xe8a317:s=400x600" -frames:v 1 "$art/$kind.jpg"; done
+artdir="$art"; command -v cygpath >/dev/null 2>&1 && artdir="$(cygpath -m "$art")"
+PORT="$port" MOCK_JPEG="$artdir" MOCK_HOLIDAYS=1 MOCK_MODE=directplay MOCK_MEDIA="$media" node "$root/tests/e2e/lib/mock-jellyfin.mjs" >/dev/null 2>&1 &
 mock=$!
 trap 'kill $mock 2>/dev/null; rm -rf "$home"' EXIT
 sleep 1.5
 
 # macOS has no `timeout`, so the time limit is kept here.
 out="$home/out.log"
-( JELLYFLIX_HEADLESS=1 JELLYFLIX_TEST_SERVER="http://127.0.0.1:$port" QT_QPA_PLATFORM=offscreen HOME="$home" "$app" >"$out" 2>&1; echo $? >"$home/status" ) &
+( JELLYFLIX_HEADLESS=1 JELLYFLIX_UPDATE_DRYRUN=1 JELLYFLIX_UPDATE_URL="http://127.0.0.1:$port/updates/latest" JELLYFLIX_TEST_SERVER="http://127.0.0.1:$port" QT_QPA_PLATFORM=offscreen HOME="$home" "$app" >"$out" 2>&1; echo $? >"$home/status" ) &
 runner=$!
 for _ in $(seq 1 120); do
   kill -0 "$runner" 2>/dev/null || break

@@ -8,6 +8,7 @@ Item {
     property var app
     property int failures: 0
     property int passes: 0
+    property bool updatesDone: false
 
     function check(name, ok, detail) {
         console.log((ok ? "PASS  " : "FAIL  ") + name + (detail ? " — " + detail : ""))
@@ -57,7 +58,13 @@ Item {
                     // the title page of the first movie
                     var h = Api; Api.items({ types: ["Movie"], limit: 1, sortBy: "SortName" }, function (r) {
                         Nav.openTitle(r.items[0])
-                        later(2200, function () { shoot("details-" + Theme.lookId, nextLook) })
+                        later(2200, function () { shoot("details-" + Theme.lookId, function () {
+                            // and a show, for its episode list
+                            Api.items({ types: ["Series"], limit: 1, sortBy: "SortName" }, function (sr) {
+                                Nav.openTitle(sr.items[0])
+                                later(2600, function () { shoot("series-" + Theme.lookId, nextLook) })
+                            })
+                        }) })
                     })
                     return
                 }
@@ -77,6 +84,11 @@ Item {
             until("home: the home page loads", () => page("home") && page("home").ready, function () {
             console.log("TIMING first screen complete after " + (Date.now() - t0) + " ms")
             var h = page("home")
+            var pic = Qt.createQmlObject('import QtQuick; Image { asynchronous: true; cache: false }', test)
+            pic.source = Api.poster(h.movies[0], 300)
+            until("pictures: a real JPEG poster loads (the JPEG support is in the package)", () => pic.status === Image.Ready || pic.status === Image.Error, function () {
+                check("pictures: it decodes to a picture", pic.status === Image.Ready && pic.implicitWidth > 0, "status " + pic.status + ", " + pic.implicitWidth + "x" + pic.implicitHeight)
+            }, 15000)
             check("home: it has recently added movies and shows", h.movies.length > 0 && h.shows.length > 0, h.movies.length + " movies, " + h.shows.length + " shows")
             check("home: it has Continue Watching", h.resume.length > 0, h.resume.length + " titles")
             check("home: it has a banner", h.heroItems.length > 0, h.heroItems.length + " slides")
@@ -148,6 +160,20 @@ Item {
         var ids = ["hulu", "hbo", "disney", "netflix"], accents = { hulu: "#1ce783", hbo: "#8b5cf6", disney: "#2bbcff", netflix: "#e50914" }, ok = true
         ids.forEach(function (id) { Theme.lookId = id; if (Theme.accent.toString().toLowerCase() !== accents[id]) ok = false })
         check("looks: every look has its own colours", ok)
+        check("updates: a checksum is found in a listing by file name", Updates.checksumFor("aaa " + "b".repeat(61) + "\n" + "c".repeat(64) + "  Jellyflix-1.0.0-linux-amd64.deb\n", "Jellyflix-1.0.0-linux-amd64.deb") === "c".repeat(64) && Updates.checksumFor("x", "y") === "")
+        Updates.check(true)
+        until("updates: it finds the newer release", () => Updates.newest === "9.9.9" && Updates.assets.length === 5, function () {
+            check("updates: it picks the package for this system", Updates.canInstall && Updates.pkgAsset !== null, Backend.updateKind + " -> " + (Updates.pkgAsset ? Updates.pkgAsset.name : "none"))
+            Updates.install()
+            until("updates: it downloads, checks and installs it (a dry run: nothing is really installed)", () => !Updates.installing && Updates.progress < 0 && Updates.message.indexOf("would run") === 0, function () {
+                check("updates: the install command is the system's own package tool", /pkexec (env|pacman|dnf|zypper)|\.exe/.test(Updates.lastCommand), Updates.lastCommand)
+                // a download that doesn't match its checksum is thrown away
+                Backend.downloadUpdate("http://127.0.0.1" + ":" + Backend.testServer.split(":").pop() + "/updates/file?name=x", "x.bin", "0".repeat(64), function () {}, function (d) {
+                    check("updates: a download that does not match its checksum is refused", !d.ok && /checksum/.test(d.error), d.error)
+                    test.updatesDone = true
+                })
+            }, 20000)
+        }, 20000)
         check("updates: a later version is newer, an earlier or equal one is not", Updates.isNewer("1.0.0", "1.0.1") && Updates.isNewer("0.9.9", "v0.10.0") && !Updates.isNewer("1.0.1", "1.0.1") && !Updates.isNewer("1.0.1", "1.0.0"))
         Settings.touchMode = "off"; Settings.touched = true
         var offOk = !Nav.touch
@@ -167,6 +193,9 @@ Item {
         })
     }
     function signOut() {
+        until("updates: the whole update path ran", () => updatesDone, function () { signOutNow() }, 40000)
+    }
+    function signOutNow() {
         Nav.navigate("signout", {})
         until("account: signing out shows the sign-in page again", () => !app.signedIn && app.loginPage.visible, finish)
     }
