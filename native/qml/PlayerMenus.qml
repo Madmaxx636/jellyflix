@@ -67,7 +67,7 @@ Item {
                             Row { anchors.fill: parent; anchors.margins: 12; spacing: 14
                                 Text { width: 30; anchors.verticalCenter: parent.verticalCenter; horizontalAlignment: Text.AlignHCenter; text: modelData.IndexNumber || ""; color: Theme.muted; font.pixelSize: 19 }
                                 Rectangle { visible: parent.parent.pic; width: 120; height: 68; radius: 3; color: Theme.card; clip: true; anchors.verticalCenter: parent.verticalCenter
-                                    Image { anchors.fill: parent; source: Api.thumb(modelData, 320); fillMode: Image.PreserveAspectCrop; asynchronous: true } }
+                                    Image { anchors.fill: parent; source: Api.still(modelData, 320); fillMode: Image.PreserveAspectCrop; asynchronous: true } }
                                 Column { anchors.verticalCenter: parent.verticalCenter; width: parent.width - 30 - 120 - 90; spacing: 3
                                     Text { width: parent.width; text: modelData.Name; color: "white"; font.pixelSize: 15; font.weight: Font.DemiBold; elide: Text.ElideRight }
                                     Text { visible: now && Theme.player.episodePictures === "current" && modelData.Overview; width: parent.width; text: modelData.Overview || ""; color: Theme.muted; font.pixelSize: 12; wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight } }

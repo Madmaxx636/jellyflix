@@ -50,6 +50,7 @@ PageBase {
             { id: "cardSize", label: "Poster size", kind: "select", prop: "cardSize", options: [{ value: "small", label: "Small" }, { value: "medium", label: "Medium" }, { value: "large", label: "Large" }] },
             { id: "scale", label: "Interface size", hint: "Makes everything bigger or smaller. Ctrl and + or −, or pinching a trackpad, does the same; Ctrl and 0 goes back to normal.", kind: "select", prop: "scale", snap: "sizes", options: pct(sizes) },
             { id: "touchMode", label: "Touch controls", hint: "Bigger buttons, and tap and swipe gestures. Auto switches when you touch the screen, and back when you use a mouse.", kind: "select", prop: "touchMode", options: [{ value: "auto", label: "Auto" }, { value: "on", label: "On" }, { value: "off", label: "Off" }] },
+            { id: "posterTitles", label: "Titles on posters", hint: "Show each title's name along the bottom of its picture, not only when the mouse is over it.", kind: "toggle", prop: "posterTitles" },
             { id: "showHero", label: "Featured banner", hint: "The big banner at the top of Home.", kind: "toggle", prop: "showHero" },
             { id: "rotateHero", label: "Rotate featured titles", hint: "Only in looks that have a carousel.", kind: "toggle", prop: "rotateHero" },
             { id: "reduceMotion", label: "Reduce motion", hint: "No hover zoom or automatic rotation.", kind: "toggle", prop: "reduceMotion" }
@@ -75,6 +76,7 @@ PageBase {
         { id: "about", label: "About", rows: [
             { id: "app", label: "Jellyflix", kind: "value", text: "Version " + Backend.version },
             { id: "updates", label: "Updates", kind: "button", text: Updates.checking ? "Checking…" : "Check now", action: "checkUpdates", disabled: Updates.checking, note: Updates.message },
+            { id: "updateNow", label: Updates.newest !== "" ? "Version " + Updates.newest + " is available" : "Install the newest version", hint: Updates.canInstall ? "Downloads it, checks it, installs it and restarts. On Linux your system asks for your password." : "This copy was not installed from one of our packages, so it can only point at the release page.", kind: "button", text: Updates.progress >= 0 ? "Downloading " + Math.round(Updates.progress * 100) + "%" : (Updates.installing ? "Installing…" : (Updates.canInstall ? "Update now" : "Release page")), action: "updateNow", disabled: Updates.newest === "" || Updates.busy, note: Updates.error },
             { id: "autoUpdate", label: "Check for updates automatically", hint: "Asks GitHub for the newest release when the app starts, and every few hours. Nothing is installed without you.", kind: "toggle", prop: "autoUpdate" },
             { id: "holiday", label: "Holiday banner", hint: "What it found in your library today.", kind: "value", text: Nav.holidayReport !== "" ? Nav.holidayReport : (Seasonal.seasonsFor(new Date()).length ? "Looking…" : "Not a holiday week") },
             { id: "decoder", label: "Player", kind: "value", text: "mpv, built in: plays every video, audio and subtitle format" },
@@ -95,6 +97,7 @@ PageBase {
     function act(name) {
         if (name === "signout") Nav.navigate("signout", {})
         else if (name === "checkUpdates") Updates.check(true)
+        else if (name === "updateNow") { if (Updates.canInstall) Updates.install(); else Backend.openUrl(Updates.url) }
         else if (name === "forget") { Backend.forgetCertificates(); trusted = 0 }
         else if (name === "reset") {
             if (confirmReset) { Settings.reset(); confirmReset = false; Toast.show("Settings are back to how they started.") }

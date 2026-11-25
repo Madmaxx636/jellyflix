@@ -243,7 +243,7 @@ FocusScope {
         Row {
             anchors.fill: parent; anchors.margins: 10; spacing: 12
             Rectangle { width: 120; height: 68; radius: 4; color: Theme.card; clip: true
-                Image { anchors.fill: parent; source: player.nextEp ? Api.thumb(player.nextEp, 320) : ""; fillMode: Image.PreserveAspectCrop; asynchronous: true } }
+                Image { anchors.fill: parent; source: player.nextEp ? Api.still(player.nextEp, 320) : ""; fillMode: Image.PreserveAspectCrop; asynchronous: true } }
             Column { anchors.verticalCenter: parent.verticalCenter; width: parent.width - 132 - 20; spacing: 2
                 Text { text: Theme.nextCard(player.countdown >= 0 ? player.countdown : null); color: Theme.muted; font.pixelSize: 13 }
                 Text { width: parent.width; text: player.nextEp ? "S" + player.nextEp.ParentIndexNumber + ":E" + player.nextEp.IndexNumber + " " + player.nextEp.Name : ""; color: "white"; font.pixelSize: 14; font.bold: true; elide: Text.ElideRight } }

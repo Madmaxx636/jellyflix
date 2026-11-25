@@ -51,7 +51,12 @@ jobs:
           rm -f pkg/opt/jellyflix/AppRun pkg/opt/jellyflix/*.desktop pkg/opt/jellyflix/*.png pkg/opt/jellyflix/.DirIcon
           ln -s /opt/jellyflix/usr/bin/jellyflix pkg/usr/bin/jellyflix
           sed 's|^Exec=.*|Exec=/opt/jellyflix/usr/bin/jellyflix|' native/packaging/jellyflix.desktop > pkg/usr/share/applications/jellyflix.desktop
-          cp native/packaging/jellyflix.png pkg/usr/share/icons/hicolor/512x512/apps/jellyflix.png
+          for size in 16 22 24 32 48 64 128 256 512; do
+            mkdir -p "pkg/usr/share/icons/hicolor/${size}x${size}/apps"
+            cp "native/packaging/icons/$size.png" "pkg/usr/share/icons/hicolor/${size}x${size}/apps/jellyflix.png"
+          done
+          cp native/packaging/after-install.sh pkg/DEBIAN/postinst
+          cp native/packaging/after-install.sh pkg/DEBIAN/postrm
           size="$(du -sk pkg | cut -f1)"
           cat > pkg/DEBIAN/control <<CONTROL
           Package: jellyflix
@@ -75,8 +80,9 @@ jobs:
           sudo apt-get install -y rpm libarchive-tools zstd ruby ruby-dev build-essential
           sudo gem install --no-document fpm
           rm -rf root && mkdir root && cp -a pkg/opt pkg/usr root/
+          after="$PWD/native/packaging/after-install.sh"
           common=(-s dir -n jellyflix -v "$version" -a x86_64 --license MIT --url https://github.com/Madmaxx636/jellyflix
-                  --description "A native Jellyfin client that plays every video, audio and subtitle format with mpv, so the server never converts anything." -C root .)
+                  --after-install "$after" --after-remove "$after" --description "A native Jellyfin client that plays every video, audio and subtitle format with mpv, so the server never converts anything." -C root .)
           # the libraries inside /opt/jellyflix are its own: they must not be turned into requirements (--no-rpm-autoreqprov)
           fpm -t rpm --iteration 1 --no-rpm-autoreqprov -d mesa-libGL -d mesa-libEGL -d libglvnd-opengl -d libX11 -d libxcb -d libxkbcommon -d fontconfig -d freetype -d glib2 -d alsa-lib -d harfbuzz -d libusb1 -d fribidi -d pipewire-libs -d pipewire-jack-audio-connection-kit-libs \
             -p "out/Jellyflix-$version-linux-x86_64.rpm" "${common[@]}"
@@ -170,6 +176,10 @@ jobs:
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
           cmake --build build
+      - name: The program file carries the icon
+        run: |
+          objdump -h native/build/jellyflix.exe | grep -q '\.rsrc' || { echo 'no resource section: the icon is not in the program'; exit 1; }
+          x86_64-w64-mingw32-objdump -s -j .rsrc native/build/jellyflix.exe 2>/dev/null | head -3 || true
       - name: Self-test
         run: native/tests/selftest.sh native/build/jellyflix.exe
       - name: Bundle Qt and mpv next to the program

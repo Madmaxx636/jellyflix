@@ -95,5 +95,9 @@ for (x, y, r) in ((92, 104, 15), (420, 150, 11), (110, 330, 9)):
 
 out = img.resize((512, 512), Image.LANCZOS)
 out.save("jellyflix.png")
+import os
+os.makedirs("icons", exist_ok=True)
+for size in (16, 22, 24, 32, 48, 64, 128, 256, 512):
+    out.resize((size, size), Image.LANCZOS).save(f"icons/{size}.png")
 out.save("jellyflix.ico", sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
 print("written")

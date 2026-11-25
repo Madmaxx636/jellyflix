@@ -1,6 +1,7 @@
 // Mock Jellyfin server for UI tests. Made-up titles, generated placeholder art (SVG), one real HLS clip.
 // Sends NO CORS headers unless MOCK_CORS=1, so the app's own CORS handling is what gets exercised.
 // Favourites and watched flags are kept in memory, so toggling them in the app can be checked here.
+import crypto from 'node:crypto'
 import http from 'node:http'
 import https from 'node:https'
 import fs from 'node:fs'
@@ -252,6 +253,21 @@ const VTT = 'WEBVTT\n\n00:00:00.500 --> 00:00:03.000\nHello from the mock subtit
 const DELAY = Number(process.env.MOCK_DELAY ?? 0) // a slow server: every answer waits this many milliseconds
 const handler = async (req, res) => {
   if (DELAY) await new Promise(r => setTimeout(r, DELAY))
+  // a stand-in for GitHub's "latest release", for the native app's updater test: one package of every kind, and a checksum list
+  if (req.url.startsWith('/updates/')) {
+    const fake = Buffer.from('a made-up package for the updater test')
+    const names = ['Jellyflix-9.9.9-windows-x64-setup.exe', 'Jellyflix-9.9.9-linux-amd64.deb', 'Jellyflix-9.9.9-linux-x86_64.rpm', 'Jellyflix-9.9.9-linux-x86_64.pkg.tar.zst']
+    const base = `http://${req.headers.host}/updates`
+    if (req.url.startsWith('/updates/latest')) {
+      return json(res, { tag_name: 'v9.9.9', html_url: 'https://example.invalid/release', assets: [...names, 'SHA256SUMS.txt'].map(n => ({ name: n, browser_download_url: n === 'SHA256SUMS.txt' ? `${base}/SHA256SUMS.txt` : `${base}/file?name=${n}` })) })
+    }
+    if (req.url.startsWith('/updates/SHA256SUMS.txt')) {
+      const sum = crypto.createHash('sha256').update(fake).digest('hex')
+      res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end(names.map(n => `${sum}  ${n}`).join('\n') + '\n')
+    }
+    if (req.url.startsWith('/updates/file')) { res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': fake.length }); return res.end(fake) }
+    res.writeHead(404); return res.end()
+  }
   const u = new URL(req.url, 'http://x'), p = u.pathname, q = u.searchParams
   res.on('finish', () => console.log(`[${PORT}] ${req.method} ${p}${u.search.slice(0, 400)} -> ${res.statusCode}`))
   if (SELF_CORS) {
@@ -282,6 +298,7 @@ const handler = async (req, res) => {
   if ((m = p.match(/^\/Items\/([^/]+)\/Images\/(Primary|Backdrop|Thumb)$/))) {
     const it = get(m[1])
     if (!it) { res.writeHead(404); return res.end() }
+    if (process.env.MOCK_JPEG) { res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'max-age=60' }); return res.end(fs.readFileSync(path.join(process.env.MOCK_JPEG, m[2] + '.jpg'))) } // real pictures, like a real server's
     res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'max-age=60' })
     return res.end(process.env.MOCK_RGB === '1' ? hslToRgb(art(it, m[2])) : art(it, m[2]))
   }

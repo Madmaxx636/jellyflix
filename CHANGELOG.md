@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.0.6 (2026-11-25)
+
+### Added
+- A self-updater. The app checks GitHub for a newer release when it starts and every six hours. "Update now" (in the banner
+  and in Settings > About) downloads the package for your system (the Windows installer, `.deb`, `.rpm` or Arch package),
+  checks its SHA-256 against the release's list, installs it and starts the new version. On Linux the system's own
+  package manager runs and asks for your password; on Windows the installer runs silently, closes the app and starts it
+  again. A download that doesn't match its checksum is thrown away. A copy that wasn't installed from one of our packages
+  (and macOS) is only pointed at the release page. The first update with this works from a version that already has it, so
+  install 1.0.6 by hand once.
+- Settings > Appearance > Titles on posters: each title's name along the bottom of its picture (on by default).
+
+### Fixed
+- Titles and pictures could be missing. Cards in the Hulu and Disney+ looks drew everything through a masking effect that
+  draws nothing where it isn't supported; it is gone, so those cards always draw (their picture corners are square for now).
+  A card whose picture can't be loaded shows its title instead. Episode rows now use the episode's own picture first, with an
+  episode-number tile when it can't load.
+- The new icon didn't show on Linux: the window didn't tell the desktop its name, so it couldn't be matched to its icon. It
+  does now, every icon size is installed, and the icon caches are refreshed when a package is installed. The Windows build
+  checks that the icon is inside the program file.
+- The self-test used the test server's made-up (SVG) pictures only; it now loads a real JPEG poster, in the installed
+  packages too.
+
 ## 1.0.5 (2026-11-25)
 
 ### Added

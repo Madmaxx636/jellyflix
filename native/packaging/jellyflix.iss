@@ -26,6 +26,9 @@ ArchitecturesInstallIn64BitMode=x64compatible
 ; no administrator prompt unless the person asks for an install for everyone
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
+; an update closes the running program, replaces it and starts it again (the app asks for that with /CLOSEAPPLICATIONS /RELAUNCH=1)
+CloseApplications=yes
+RestartApplications=no
 
 [Tasks]
 Name: "desktopicon"; Description: "Put a Jellyflix icon on the desktop"
@@ -39,3 +42,10 @@ Name: "{autodesktop}\Jellyflix"; Filename: "{app}\jellyflix.exe"; Tasks: desktop
 
 [Run]
 Filename: "{app}\jellyflix.exe"; Description: "Start Jellyflix"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\jellyflix.exe"; Flags: nowait; Check: Relaunch
+
+[Code]
+function Relaunch: Boolean;
+begin
+  Result := ExpandConstant('{param:RELAUNCH|0}') = '1';
+end;
