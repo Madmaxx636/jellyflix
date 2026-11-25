@@ -33,7 +33,7 @@ FocusScope {
     readonly property bool keepShown: video.paused || menu !== "" || (hoverShows && hovering) || failure !== "" || video.error !== ""
     readonly property bool uiVisible: shown || keepShown
     readonly property real pad: layout.pad < 1 ? width * layout.pad : layout.pad
-    readonly property real cs: Settings.controlsScale
+    readonly property real cs: Settings.controlsScale * (Nav.touch ? 1.3 : 1)
     readonly property real duration: video.duration > 0 ? video.duration : (plan ? (plan.source.RunTimeTicks || 0) / 1e7 : 0)
     readonly property var nextEp: { var at = item ? episodes.findIndex(e => e.Id === item.Id) : -1; return at >= 0 ? episodes[at + 1] || null : null }
     readonly property var skippable: segments.find(s => ["Intro", "Recap", "Preview", "Commercial"].indexOf(s.type) >= 0 && video.position >= s.start - 0.05 && video.position < s.end - 0.3) || null
@@ -129,8 +129,34 @@ FocusScope {
     MouseArea {
         anchors.fill: parent; acceptedButtons: Qt.LeftButton; hoverEnabled: true
         cursorShape: player.uiVisible ? Qt.ArrowCursor : Qt.BlankCursor
-        onClicked: { if (player.menu !== "") player.menu = ""; else player.toggle() }
-        onDoubleClicked: player.toggleFullscreen()
+        onClicked: mouse => player.tapped(mouse.x)
+        onDoubleClicked: if (!Nav.touch) player.toggleFullscreen()
+    }
+    // Touch: a tap shows hidden controls. With the controls showing, a tap in the middle pauses or plays and a tap at the sides hides
+    // them; two quick taps at a side skip back (left third) or forward (right third).
+    property double lastTap: 0
+    property string flashSide: ""
+    function tapped(x) {
+        if (!Nav.touch) { if (menu !== "") menu = ""; else toggle(); return }
+        var side = x < width / 3 ? "left" : (x > width * 2 / 3 ? "right" : "center")
+        if (menu !== "") { menu = ""; lastTap = 0; return }
+        var now = Date.now()
+        if (side !== "center" && now - lastTap < 300) {
+            sideHide.stop(); lastTap = 0
+            bump(side === "left" ? -10 : 10); flashSide = side; flashTimer.restart()
+            return
+        }
+        if (!shown) { wake(); lastTap = side === "center" ? 0 : now; return }
+        if (side === "center") { lastTap = 0; toggle(); return }
+        lastTap = now; sideHide.restart()
+    }
+    Timer { id: sideHide; interval: 300; onTriggered: if (!player.keepShown) player.shown = false }
+    Timer { id: flashTimer; interval: 700; onTriggered: player.flashSide = "" }
+    Rectangle {
+        visible: player.flashSide !== ""
+        x: player.flashSide === "left" ? parent.width * 0.08 : parent.width * 0.92 - width; anchors.verticalCenter: parent.verticalCenter
+        width: Math.min(parent.width, parent.height) * 0.18; height: width; radius: width / 2; color: Qt.rgba(0, 0, 0, 0.55)
+        Text { anchors.centerIn: parent; text: (player.flashSide === "left" ? "−" : "+") + "10 s"; color: "white"; font.pixelSize: 22; font.bold: true }
     }
     Keys.onPressed: event => {
         player.wake()

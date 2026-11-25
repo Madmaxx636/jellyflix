@@ -35,6 +35,9 @@ public:
     /// Sends a request. The callback gets one object: {ok, status, data, error, cert}.
     /// `cert` is set when the server's certificate isn't trusted: {fingerprint, subject, issuer, validFrom, validTo}.
     Q_INVOKABLE void request(const QString &method, const QString &url, const QString &body, const QString &token, const QJSValue &callback);
+    /// A plain GET of a public address (no sign-in header: nothing about the server or the device is sent). Used for update checks.
+    Q_INVOKABLE void fetchPublic(const QString &url, const QJSValue &callback);
+    Q_INVOKABLE void openUrl(const QString &url);
     Q_INVOKABLE void trustCertificate(const QString &fingerprint);
     Q_INVOKABLE void forgetCertificates();
     Q_INVOKABLE int trustedCertificates() const;

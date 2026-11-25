@@ -37,7 +37,7 @@ FocusScope {
         radius: Theme.radius; color: Theme.card; clip: false
         border.width: Theme.disney ? 3 : (card.activeFocus ? 3 : 0)
         border.color: card.activeFocus ? "white" : (card.lit ? Qt.rgba(0.98, 0.98, 0.98, 0.8) : Qt.rgba(0.98, 0.98, 0.98, 0.1))
-        scale: card.lit && !Settings.reduceMotion ? (Theme.netflix ? 1.08 : Theme.hulu ? 1.02 : Theme.hbo ? 1.04 : 1.05) : 1
+        scale: card.lit && !Settings.reduceMotion && !Nav.touch ? (Theme.netflix ? 1.08 : Theme.hulu ? 1.02 : Theme.hbo ? 1.04 : 1.05) : 1
         y: card.lit && Theme.hulu && !Settings.reduceMotion ? -4 : 0
         Behavior on scale { NumberAnimation { duration: 200 } }
         Behavior on y { NumberAnimation { duration: 200 } }
@@ -59,22 +59,22 @@ FocusScope {
             }
             // wide tiles show their name on the picture
             Rectangle {
-                visible: card.wide && !card.lit
+                visible: card.wide && !card.lit && !Nav.touch
                 anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 44
                 gradient: Gradient { GradientStop { position: 0; color: "transparent" } GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 0.85) } }
                 Text { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 10; anchors.bottomMargin: 8; text: card.label; color: "white"; font.pixelSize: 14; font.weight: Font.DemiBold; elide: Text.ElideRight }
             }
             // hover: name, facts, buttons
             Rectangle {
-                opacity: card.lit ? 1 : 0
+                opacity: card.lit || Nav.touch ? 1 : 0
                 anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: info.implicitHeight + 46
                 gradient: Gradient { GradientStop { position: 0; color: "transparent" } GradientStop { position: 0.55; color: Qt.rgba(0, 0, 0, 0.94) } GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 0.94) } }
                 Behavior on opacity { NumberAnimation { duration: 150 } }
                 Column {
                     id: info
                     anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 10; spacing: 5
-                    Text { width: parent.width; text: card.label; color: "white"; font.pixelSize: 14; font.bold: true; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight }
-                    Text { visible: card.meta !== ""; width: parent.width; text: card.meta; color: Theme.muted; font.pixelSize: 12; elide: Text.ElideRight }
+                    Text { visible: !Nav.touch; width: parent.width; text: card.label; color: "white"; font.pixelSize: 14; font.bold: true; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight }
+                    Text { visible: card.meta !== "" && !Nav.touch; width: parent.width; text: card.meta; color: Theme.muted; font.pixelSize: 12; elide: Text.ElideRight }
                     Row {
                         spacing: 6
                         Rectangle {

@@ -134,16 +134,19 @@ Item {
         }
     }
     Rectangle {
-        visible: !hero.details && hero.slides.length > 1 && hoverArea.hovered
+        visible: !hero.details && hero.slides.length > 1 && hoverArea.hovered && !Nav.touch
         anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; width: 44; height: 64; color: Qt.rgba(0, 0, 0, 0.35)
         Icon { anchors.centerIn: parent; name: "left"; size: 28 }
         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: hero.index = (hero.index + hero.slides.length - 1) % hero.slides.length }
     }
     Rectangle {
-        visible: !hero.details && hero.slides.length > 1 && hoverArea.hovered
+        visible: !hero.details && hero.slides.length > 1 && hoverArea.hovered && !Nav.touch
         anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; width: 44; height: 64; color: Qt.rgba(0, 0, 0, 0.35)
         Icon { anchors.centerIn: parent; name: "right"; size: 28 }
         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: hero.index = (hero.index + 1) % hero.slides.length }
     }
     HoverHandler { id: hoverArea }
+    // a swipe sideways moves to the next or previous featured title
+    DragHandler { acceptedDevices: PointerDevice.TouchScreen; yAxis.enabled: false; enabled: !hero.details && hero.slides.length > 1
+        onActiveChanged: if (!active && Math.abs(translation.x) > 50) hero.index = (hero.index + (translation.x < 0 ? 1 : hero.slides.length - 1)) % hero.slides.length }
 }

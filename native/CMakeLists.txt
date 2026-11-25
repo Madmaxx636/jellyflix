@@ -27,7 +27,7 @@ qt_add_executable(jellyflix
     src/mpvitem.h
 )
 
-set_source_files_properties(qml/Api.qml qml/Theme.qml qml/Settings.qml qml/Flags.qml qml/Toast.qml qml/Nav.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+set_source_files_properties(qml/Api.qml qml/Theme.qml qml/Settings.qml qml/Flags.qml qml/Toast.qml qml/Nav.qml qml/Updates.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 qt_add_qml_module(jellyflix
     URI Jellyflix
@@ -68,6 +68,7 @@ qt_add_qml_module(jellyflix
         qml/Flags.qml
         qml/Toast.qml
         qml/Nav.qml
+        qml/Updates.qml
         qml/Util.js
         qml/Seasonal.js
     SOURCES

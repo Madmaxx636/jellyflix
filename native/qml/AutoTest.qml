@@ -134,6 +134,16 @@ Item {
         var ids = ["hulu", "hbo", "disney", "netflix"], accents = { hulu: "#1ce783", hbo: "#8b5cf6", disney: "#2bbcff", netflix: "#e50914" }, ok = true
         ids.forEach(function (id) { Theme.lookId = id; if (Theme.accent.toString().toLowerCase() !== accents[id]) ok = false })
         check("looks: every look has its own colours", ok)
+        check("updates: a later version is newer, an earlier or equal one is not", Updates.isNewer("1.0.0", "1.0.1") && Updates.isNewer("0.9.9", "v0.10.0") && !Updates.isNewer("1.0.1", "1.0.1") && !Updates.isNewer("1.0.1", "1.0.0"))
+        Settings.touchMode = "off"; Settings.touched = true
+        var offOk = !Nav.touch
+        Settings.touchMode = "auto"; Settings.touched = false
+        var mouseOk = !Nav.touch
+        Settings.touched = true
+        var touchOk = Nav.touch
+        Settings.touchMode = "on"
+        check("touch: Auto follows what was used last, On and Off are fixed", offOk && mouseOk && touchOk && Nav.touch)
+        Settings.touchMode = "auto"; Settings.touched = false
         Nav.navigate("settings", {})
         until("settings: the page opens with its sections", () => page("settings") !== null, function () {
             check("settings: the options are there", page("settings").sections.length === 5 && page("settings").sections.reduce((n, s) => n + s.rows.length, 0) > 30, page("settings").sections.reduce((n, s) => n + s.rows.length, 0) + " options")

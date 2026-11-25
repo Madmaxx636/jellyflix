@@ -45,13 +45,13 @@ Column {
         }
         Rectangle {
             id: leftArrow
-            visible: wrap.containsMouse && list.contentX > 4
+            visible: wrap.containsMouse && !Nav.touch && list.contentX > 4
             anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; anchors.topMargin: 14; width: parent.width * 0.04; color: Qt.rgba(0.08, 0.08, 0.08, 0.55); z: 5
             Icon { anchors.centerIn: parent; name: "left"; size: 26 }
             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: scrollAnim.go(-1) }
         }
         Rectangle {
-            visible: wrap.containsMouse && list.contentX + list.width < list.contentWidth - 4
+            visible: wrap.containsMouse && !Nav.touch && list.contentX + list.width < list.contentWidth - 4
             anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: parent.bottom; anchors.topMargin: 14; width: parent.width * 0.04; color: Qt.rgba(0.08, 0.08, 0.08, 0.55); z: 5
             Icon { anchors.centerIn: parent; name: "right"; size: 26 }
             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: scrollAnim.go(1) }
@@ -62,6 +62,6 @@ Column {
             target: list; property: "contentX"; duration: 280; easing.type: Easing.OutCubic
             function go(dir) { stop(); from = list.contentX; to = Math.max(0, Math.min(list.contentWidth - list.width, list.contentX + dir * list.width * 0.85)); start() }
         }
-        WheelHandler { acceptedDevices: PointerDevice.TouchPad | PointerDevice.Mouse; orientation: Qt.Horizontal; onWheel: event => { list.contentX = Math.max(0, Math.min(list.contentWidth - list.width, list.contentX - event.angleDelta.x)) } }
+        WheelHandler { acceptedDevices: PointerDevice.TouchPad | PointerDevice.Mouse; orientation: Qt.Horizontal; onWheel: event => { var to = Math.max(0, Math.min(list.contentWidth - list.width, list.contentX - event.angleDelta.x)); if (to !== list.contentX) Nav.rowScrolledAt = Date.now(); list.contentX = to } }
     }
 }

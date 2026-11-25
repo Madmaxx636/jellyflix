@@ -16,8 +16,8 @@ Button {
     property bool upper: Theme.hbo
     hoverEnabled: true
     focusPolicy: Qt.TabFocus
-    implicitHeight: round ? 44 : (small ? 32 : 42)
-    implicitWidth: round ? 44 : row.implicitWidth + (small ? 24 : 44)
+    implicitHeight: round ? (Nav.touch ? 50 : 44) : (small ? (Nav.touch ? 40 : 32) : (Nav.touch ? 48 : 42))
+    implicitWidth: round ? (Nav.touch ? 50 : 44) : row.implicitWidth + (small ? 24 : (Nav.touch ? 52 : 44))
     readonly property color fg: round && on ? Theme.onAccent : (primary ? (accentFill ? Theme.onAccent : Theme.primaryFg) : "white")
     background: Rectangle {
         radius: b.round ? width / 2 : Theme.btnRadius

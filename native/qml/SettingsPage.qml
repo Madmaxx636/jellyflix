@@ -48,6 +48,7 @@ PageBase {
             { id: "look", label: "Look", hint: "Switch the whole app between the four styles.", kind: "select", prop: "@look", options: Theme.all.map(l => ({ value: l.id, label: l.label })) },
             { id: "cardSize", label: "Poster size", kind: "select", prop: "cardSize", options: [{ value: "small", label: "Small" }, { value: "medium", label: "Medium" }, { value: "large", label: "Large" }] },
             { id: "scale", label: "Interface size", hint: "Makes everything bigger or smaller. Ctrl and + or −, or pinching a trackpad, does the same; Ctrl and 0 goes back to normal.", kind: "select", prop: "scale", snap: "sizes", options: pct(sizes) },
+            { id: "touchMode", label: "Touch controls", hint: "Bigger buttons, and tap and swipe gestures. Auto switches when you touch the screen, and back when you use a mouse.", kind: "select", prop: "touchMode", options: [{ value: "auto", label: "Auto" }, { value: "on", label: "On" }, { value: "off", label: "Off" }] },
             { id: "showHero", label: "Featured banner", hint: "The big banner at the top of Home.", kind: "toggle", prop: "showHero" },
             { id: "rotateHero", label: "Rotate featured titles", hint: "Only in looks that have a carousel.", kind: "toggle", prop: "rotateHero" },
             { id: "reduceMotion", label: "Reduce motion", hint: "No hover zoom or automatic rotation.", kind: "toggle", prop: "reduceMotion" }
@@ -72,6 +73,8 @@ PageBase {
         ] },
         { id: "about", label: "About", rows: [
             { id: "app", label: "Jellyflix", kind: "value", text: "Version " + Backend.version },
+            { id: "updates", label: "Updates", kind: "button", text: Updates.checking ? "Checking…" : "Check now", action: "checkUpdates", disabled: Updates.checking, note: Updates.message },
+            { id: "autoUpdate", label: "Check for updates automatically", hint: "Asks GitHub for the newest release when the app starts, and every few hours. Nothing is installed without you.", kind: "toggle", prop: "autoUpdate" },
             { id: "decoder", label: "Player", kind: "value", text: "mpv, built in: plays every video, audio and subtitle format" },
             { id: "trusted", label: "Servers you chose to trust", hint: "Servers whose certificate this computer doesn't trust, which you allowed.", kind: "button", text: trusted > 0 ? "Forget " + trusted : "None", action: "forget", disabled: trusted === 0 },
             { id: "serverInfo", label: "Server software", kind: "value", text: serverInfo ? (serverInfo.ServerName || "Jellyfin") + " · " + (serverInfo.ProductName || "Jellyfin Server") + " " + (serverInfo.Version || "") : "Checking…" }
@@ -89,6 +92,7 @@ PageBase {
     }
     function act(name) {
         if (name === "signout") Nav.navigate("signout", {})
+        else if (name === "checkUpdates") Updates.check(true)
         else if (name === "forget") { Backend.forgetCertificates(); trusted = 0 }
         else if (name === "reset") {
             if (confirmReset) { Settings.reset(); confirmReset = false; Toast.show("Settings are back to how they started.") }
@@ -166,7 +170,7 @@ PageBase {
                                             Rectangle { visible: page.layout !== "list" && !(page.layout === "cards" && index === section.rows.length - 1); anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.line }
                                             Column { id: rowCol; anchors.left: parent.left; anchors.leftMargin: page.layout === "list" ? 20 : 0; anchors.verticalCenter: parent.verticalCenter; width: parent.width - control.width - 60; spacing: 3
                                                 Text { width: parent.width; text: def.label; color: "white"; font.pixelSize: 16; font.weight: Font.DemiBold; wrapMode: Text.Wrap }
-                                                Text { visible: !!def.hint; width: parent.width; text: def.hint || ""; color: Theme.muted; font.pixelSize: 13; wrapMode: Text.Wrap } }
+                                                Text { visible: !!def.hint || !!def.note; width: parent.width; text: def.note ? def.note : (def.hint || ""); color: Theme.muted; font.pixelSize: 13; wrapMode: Text.Wrap } }
                                             Item {
                                                 id: control
                                                 anchors.right: parent.right; anchors.rightMargin: page.layout === "list" ? 20 : 0; anchors.verticalCenter: parent.verticalCenter

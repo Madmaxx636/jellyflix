@@ -92,6 +92,68 @@ ApplicationWindow {
         }
     }
 
+    // ---- what was used last: a touch screen or a mouse (Settings > Touch controls) ----
+    PointHandler { acceptedDevices: PointerDevice.TouchScreen; onActiveChanged: if (active) Settings.touched = true }
+    HoverHandler { acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad; onPointChanged: if (Settings.touched) Settings.touched = false }
+
+    // ---- going back by swiping: in from either edge of a touch screen, or sideways with two fingers on a trackpad ----
+    Item {
+        id: edges
+        anchors.fill: parent
+        readonly property bool canBack: player.active || stack.depth > 1
+        Repeater {
+            model: ["left", "right"]
+            delegate: Item {
+                id: zone
+                readonly property bool atLeft: modelData === "left"
+                x: atLeft ? 0 : parent.width - 24; width: 24; height: parent.height; z: 50
+                DragHandler {
+                    id: drag
+                    acceptedDevices: PointerDevice.TouchScreen; yAxis.enabled: false; enabled: edges.canBack
+                    target: null
+                    onActiveChanged: { if (!active) { var across = zone.atLeft ? activeTranslation.x : -activeTranslation.x; if (across >= 90) win.back() } }
+                }
+                Rectangle {   // the round arrow that follows the finger
+                    readonly property real across: drag.active ? Math.max(0, zone.atLeft ? drag.activeTranslation.x : -drag.activeTranslation.x) : 0
+                    visible: across > 8; width: 44; height: 44; radius: 22; color: "#eb1e1e1e"; opacity: Math.min(1, across / 90)
+                    x: zone.atLeft ? Math.min(across, 90) - 44 : zone.width - Math.min(across, 90); anchors.verticalCenter: parent.verticalCenter
+                    Icon { anchors.centerIn: parent; name: "left"; size: 22 }
+                }
+            }
+        }
+    }
+    WheelHandler {
+        id: swipeBack
+        acceptedDevices: PointerDevice.TouchPad; orientation: Qt.Horizontal; acceptedModifiers: Qt.NoModifier
+        property real total: 0
+        property double last: 0
+        property bool fired: false
+        onWheel: event => {
+            var now = Date.now()
+            if (now - last > 250) { total = 0; fired = false }
+            last = now
+            if (fired || !edges.canBack || now - Nav.rowScrolledAt < 400) return
+            var dx = event.angleDelta.x, dy = event.angleDelta.y
+            if (Math.abs(dx) < Math.abs(dy) * 1.5) { total = 0; return }
+            total += dx
+            if (total >= 220) { fired = true; total = 0; win.back() }
+        }
+    }
+
+    // ---- a newer release ----
+    Rectangle {
+        visible: Updates.newest !== "" && !Updates.dismissed && win.signedIn && !player.active
+        anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 24 * win.zoom
+        width: upRow.implicitWidth + 28; height: 52; radius: Theme.radius; color: "#262626"; border.color: Theme.line; z: 60
+        Rectangle { width: 4; height: parent.height; radius: 2; color: Theme.accent }
+        Row { id: upRow; anchors.verticalCenter: parent.verticalCenter; x: 18; spacing: 12
+            Text { anchors.verticalCenter: parent.verticalCenter; text: "Version " + Updates.newest + " is out."; color: "white"; font.pixelSize: 14 }
+            Btn { anchors.verticalCenter: parent.verticalCenter; small: true; primary: true; text: "Download"; onClicked: Backend.openUrl(Updates.url) }
+            Btn { anchors.verticalCenter: parent.verticalCenter; small: true; text: "Later"; onClicked: Updates.dismissed = true } }
+    }
+    Timer { interval: 3000; running: Settings.autoUpdate; onTriggered: Updates.check(false) }
+    Timer { interval: 6 * 60 * 60 * 1000; repeat: true; running: Settings.autoUpdate; onTriggered: Updates.check(false) }
+
     PlayerPage { id: player; anchors.fill: parent; video: video; window: win }
 
     // the test rig drives the app (only when it is started with JELLYFLIX_TEST_SERVER)
