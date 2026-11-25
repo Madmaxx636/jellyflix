@@ -25,7 +25,8 @@ PageBase {
     readonly property bool hasHero: Settings.showHero && heroItems.length > 0
 
     function pickHero() {
-        var worth = function (it) { return ((it.BackdropImageTags && it.BackdropImageTags.length) || (it.ParentBackdropImageTags && it.ParentBackdropImageTags.length)) && it.Overview }
+        var picture = function (it) { return (it.BackdropImageTags && it.BackdropImageTags.length) || (it.ParentBackdropImageTags && it.ParentBackdropImageTags.length) || (it.ImageTags && (it.ImageTags.Primary || it.ImageTags.Thumb)) }
+        var worth = function (it) { return picture(it) && (it.Overview || holiday.labels[it.Id] !== undefined) }
         var pool = []
         if (Settings.rowSeasonal) pool = holiday.items.filter(worth)
         if (pool.length < 2 && movies.length + shows.length === 0) return

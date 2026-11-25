@@ -11,7 +11,7 @@ home="$(mktemp -d)"
 media="$(cd "$root" && node -e "import('./tests/e2e/lib/clip.mjs').then(m => console.log(m.ensureClip()))")"
 [ -n "$media" ] || { echo "ffmpeg is needed to make the test clip"; exit 2; }
 
-PORT="$port" MOCK_MODE=directplay MOCK_MEDIA="$media" node "$root/tests/e2e/lib/mock-jellyfin.mjs" >/dev/null 2>&1 &
+PORT="$port" MOCK_HOLIDAYS=1 MOCK_MODE=directplay MOCK_MEDIA="$media" node "$root/tests/e2e/lib/mock-jellyfin.mjs" >/dev/null 2>&1 &
 mock=$!
 trap 'kill $mock 2>/dev/null; rm -rf "$home"' EXIT
 sleep 1.5
