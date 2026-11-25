@@ -49,6 +49,7 @@ PageBase {
             names.forEach(function (g, i) { Api.byGenre(g, function (items) { rows[i] = { title: g, items: items }; if (++got === names.length) finish() }) })
         }
         Api.resume(r => { resume = r; done() })
+        Api.probe(err => { if (err) home.error = err })
         Api.nextUp(r => { nextUp = r; done() })
         Api.latest("Movie", r => { movies = r; done() })
         Api.latest("Series", r => { shows = r; done() })
@@ -138,6 +139,11 @@ PageBase {
                 visible: home.ready && home.rowDefs().every(r => r.items.length === 0)
                 x: home.width * 0.04; width: home.width * 0.9; wrapMode: Text.Wrap; color: Theme.muted; font.pixelSize: 18
                 text: "Nothing to show yet. Add some titles to your Jellyfin library and they'll appear here."
+            }
+            Column {
+                visible: home.error !== ""; x: home.width * 0.04; width: Math.min(640, home.width * 0.9); spacing: 10; topPadding: 20
+                Text { width: parent.width; wrapMode: Text.Wrap; color: "#ff6b6b"; font.pixelSize: 17; text: "Couldn't load your library: " + home.error }
+                Btn { text: "Try again"; onClicked: Nav.navigate("home", {}) }
             }
             Item { width: 1; height: 60 }
         }

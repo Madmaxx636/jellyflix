@@ -114,6 +114,8 @@ QtObject {
     // ----- the library -----
     function browsable(v) { return ["movies", "tvshows", "boxsets", "homevideos", "mixed", ""].indexOf((v.CollectionType || "").toLowerCase()) >= 0 }
     function views(cb) { firstThatExists("views", ["/UserViews?userId=" + session.userId, "/Users/" + session.userId + "/Views"], r => cb(r.ok ? r.data.Items.filter(browsable) : [])) }
+    /// Continue Watching is the canary: if even that fails it's a sign-in or connection problem worth showing.
+    function probe(cb) { firstThatExists("resume", ["/UserItems/Resume?userId=" + session.userId + "&Limit=1", "/Users/" + session.userId + "/Items/Resume?Limit=1"], r => cb(r.ok ? "" : (r.status ? "the server answered " + r.status : (r.error || "no answer")))) }
     function resume(cb) { firstThatExists("resume", ["/UserItems/Resume?userId=" + session.userId + "&Limit=20&MediaTypes=Video&Fields=" + fields, "/Users/" + session.userId + "/Items/Resume?Limit=20&MediaTypes=Video&Fields=" + fields], r => cb(r.ok ? r.data.Items : [])) }
     function nextUp(cb) { get("/Shows/NextUp?UserId=" + session.userId + "&Limit=20&Fields=" + fields, r => cb(r.ok ? r.data.Items : [])) }
     function latest(type, cb) { firstThatExists("latest", ["/Items/Latest?userId=" + session.userId + "&Limit=20&IncludeItemTypes=" + type + "&GroupItems=false&Fields=" + fields, "/Users/" + session.userId + "/Items/Latest?Limit=20&IncludeItemTypes=" + type + "&GroupItems=false&Fields=" + fields], r => cb(r.ok ? r.data : [])) }

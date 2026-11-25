@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.0.1 (unreleased)
+
+The native app now has the web-engine app's whole interface: it was a bare skeleton in 1.0.0.
+
+### Added
+- All four looks in full: each one's top bar, banners (single or rotating, Hulu's inset and rounded), rows with a ranked
+  Top 10 and Disney+'s brand tiles, cards that grow and show Play and the list button.
+- Every page: Home with recommendations and genre rows, Movies and Shows with genre, type, watched and sort choices that
+  load more as you scroll, Libraries, Genres, a page per genre, Collections, New & Popular, My List, people, title pages
+  with tabs, season menu, episodes with watched buttons, cast, trailers and facts, search with recents and a People
+  filter, and sign-in with a "Who's watching?" profile picker.
+- Settings in the four layouts (Netflix's labelled lines, Hulu's cards, HBO's sidebar, Disney+'s list), 41 options.
+- The holiday banner with Thanksgiving and Christmas classics, interface size (Ctrl and + or −, Ctrl and 0, a trackpad
+  pinch), touch controls (Auto, On, Off), going back by swiping in from the edge of a touch screen or with two fingers on a
+  trackpad.
+- The player has each look's own layout, pop-ups, skip-intro and next-episode cards, seek-bar previews and tap gestures,
+  and plays everything with mpv.
+- The app asks GitHub for a newer release when it starts and every six hours (nothing about you is sent) and shows a
+  banner with a download button; Settings > About can check now or turn it off.
+- The window remembers its size and place, and starting the app twice brings the open window forward.
+
+### Not in yet
+- macOS and Android packages in the release, media keys and the system's "now playing", and a "Try again" message on
+  every page that can fail (Home has one).
+
 ## 1.0.0 (2026-11-24)
 
 The app is rebuilt from scratch as a native program: no web engine, no Electron. Qt 6 draws the windows and mpv plays the video.

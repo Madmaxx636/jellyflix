@@ -21,7 +21,31 @@ ApplicationWindow {
     property alias uiItem: ui
     readonly property real zoom: Settings.scale
 
+    // the window remembers its size and place
+    function restoreWindow() {
+        try {
+            var w = JSON.parse(Backend.setting("window", "{}"))
+            if (w.width >= 420 && w.height >= 360) { width = w.width; height = w.height }
+            if (w.x !== undefined && w.y !== undefined && w.x > -width + 100 && w.y > -50) { x = w.x; y = w.y }
+            if (w.maximized) visibility = Window.Maximized
+        } catch (e) { /* the default size */ }
+    }
+    function saveWindow() {
+        if (visibility === Window.FullScreen || visibility === Window.Minimized) return
+        var maximized = visibility === Window.Maximized
+        var old = {}
+        try { old = JSON.parse(Backend.setting("window", "{}")) } catch (e) { old = {} }
+        Backend.setSetting("window", JSON.stringify(maximized ? Object.assign(old, { maximized: true }) : { x: x, y: y, width: width, height: height, maximized: false }))
+    }
+    Timer { id: saveTimer; interval: 600; onTriggered: win.saveWindow() }
+    onWidthChanged: saveTimer.restart()
+    onHeightChanged: saveTimer.restart()
+    onXChanged: saveTimer.restart()
+    onYChanged: saveTimer.restart()
+    onVisibilityChanged: saveTimer.restart()
+
     Component.onCompleted: {
+        if (!Backend.testMode) restoreWindow()
         Theme.lookId = Backend.setting("look", "netflix")
         Settings.load()
         Api.load()
