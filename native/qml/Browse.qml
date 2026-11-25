@@ -109,8 +109,11 @@ PageBase {
         Repeater {
             model: page.items
             delegate: Item {
+                id: cell
                 width: (Theme.landscape ? Theme.cardWideW : Theme.cardW); height: (Theme.landscape ? Theme.cardWideW * 9 / 16 : Theme.cardW * 1.5) + 18
-                Card { item: modelData }
+                // only the cards on (or near) the screen are built: hundreds of live cards with pictures made scrolling sticky
+                readonly property bool near: { var top = cell.mapToItem(page.contentItem, 0, 0).y + 0 * y; var d = top - page.contentY; return d > -900 && d < page.height + 900 }
+                Loader { active: cell.near; sourceComponent: Card { item: modelData } }
             }
         }
     }

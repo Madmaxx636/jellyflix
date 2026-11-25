@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import Jellyflix
+import "Seasonal.js" as Seasonal
 
 /// Settings / Account / App Settings: four layouts, one per look. Every control here changes something the app really does.
 PageBase {
@@ -75,6 +76,7 @@ PageBase {
             { id: "app", label: "Jellyflix", kind: "value", text: "Version " + Backend.version },
             { id: "updates", label: "Updates", kind: "button", text: Updates.checking ? "Checking…" : "Check now", action: "checkUpdates", disabled: Updates.checking, note: Updates.message },
             { id: "autoUpdate", label: "Check for updates automatically", hint: "Asks GitHub for the newest release when the app starts, and every few hours. Nothing is installed without you.", kind: "toggle", prop: "autoUpdate" },
+            { id: "holiday", label: "Holiday banner", hint: "What it found in your library today.", kind: "value", text: Nav.holidayReport !== "" ? Nav.holidayReport : (Seasonal.seasonsFor(new Date()).length ? "Looking…" : "Not a holiday week") },
             { id: "decoder", label: "Player", kind: "value", text: "mpv, built in: plays every video, audio and subtitle format" },
             { id: "trusted", label: "Servers you chose to trust", hint: "Servers whose certificate this computer doesn't trust, which you allowed.", kind: "button", text: trusted > 0 ? "Forget " + trusted : "None", action: "forget", disabled: trusted === 0 },
             { id: "serverInfo", label: "Server software", kind: "value", text: serverInfo ? (serverInfo.ServerName || "Jellyfin") + " · " + (serverInfo.ProductName || "Jellyfin Server") + " " + (serverInfo.Version || "") : "Checking…" }

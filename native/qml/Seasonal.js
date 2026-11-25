@@ -89,7 +89,10 @@ function qualifies(it, season) {
     var genres = it.Genres || []
     var scary = genres.indexOf("Horror") >= 0 || genres.indexOf("Thriller") >= 0
     if (scary && !season.horror) return false
-    if (it.CommunityRating === undefined || it.CommunityRating === null) return (it.ProductionYear || 9999) <= 1995
+    if (it.CommunityRating === undefined || it.CommunityRating === null) {
+        // no rating at all: older titles are trusted, and so is anything rated for the family
+        return (it.ProductionYear || 9999) <= 1995 || (!!it.OfficialRating && FAMILY.test(String(it.OfficialRating).trim()) && !scary)
+    }
     return it.CommunityRating >= (scary ? 7 : 6.4)
 }
 function score(it) {
@@ -119,12 +122,16 @@ function picksFor(api, season, style, cb) {
         var extra = dedupe(found).filter(function (i) { return !knownIds[i.Id] && (style === "all" || qualifies(i, season)) })
         extra.sort(function (a, b) { return score(b) - score(a) })
         var k = dedupe(known).sort(function (a, b) { return score(b) - score(a) })
-        cb(k.concat(extra).slice(0, style === "all" ? 24 : 12))
+        cb(k.concat(extra).slice(0, style === "all" ? 24 : 12), { classics: k.length, others: extra.length, candidates: dedupe(found).length })
     }
     // the classics, by name
     var jobs = data.movies.map(function (w) { return { movie: w } }).concat(data.episodes.map(function (w) { return { episode: w } }))
+    var word = function (title) {
+        var words = String(title).replace(/[^A-Za-z0-9 ]+/g, " ").split(/\s+/).filter(function (w) { return w.length >= 3 })
+        return words.sort(function (a, b) { return b.length - a.length })[0] || String(title)
+    }
     inBatches(jobs, function (job, done) {
-        var q = job.movie ? { types: ["Movie"], search: job.movie.title, limit: 8 } : { types: ["Episode"], search: job.episode.title, limit: 12 }
+        var q = job.movie ? { types: ["Movie"], search: word(job.movie.title), limit: 40 } : { types: ["Episode"], search: word(job.episode.title), limit: 60 }
         api.items(q, function (r) { done(r.items.filter(function (i) { return job.movie ? matchesClassic(i, job.movie) : matchesEpisode(i, job.episode) })) })
     }, function (lists) { lists.forEach(function (l) { known = known.concat(l || []) }); check() })
     // whatever else looks like the season
@@ -139,24 +146,28 @@ function picksFor(api, season, style, cb) {
 /// Picks for every season that applies, taking turns between seasons. Finding them takes a few dozen requests, so each season's picks
 /// are kept for half a day in `store` ({get(key), set(key, text)}). cb({items, labels}).
 function holidayPicks(api, seasons, style, cb, store) {
-    var lists = [], left = seasons.length, TTL = 12 * 60 * 60 * 1000
+    var lists = [], left = seasons.length, TTL = 12 * 60 * 60 * 1000, report = []
     if (!left) { cb({ items: [], labels: ({}) }); return }
-    var key = function (season) { return "holiday." + api.session.server + "|" + api.session.userId + "." + season.id + "." + style }
+    var key = function (season) { return "holiday2." + api.session.server + "|" + api.session.userId + "." + season.id + "." + style }
     var combine = function () {
         var out = [], labels = {}
         for (var i = 0; lists.some(function (l) { return i < l.items.length }); i++) {
             lists.forEach(function (l) { var it = l.items[i]; if (it && labels[it.Id] === undefined) { labels[it.Id] = l.season.title; out.push(it) } })
         }
-        cb({ items: out, labels: labels })
+        cb({ items: out, labels: labels, report: report.join("; ") })
     }
     seasons.forEach(function (season, si) {
         var kept = null
         try { var raw = store && store.get(key(season)); if (raw) { var p = JSON.parse(raw); if (Date.now() - p.at < TTL) kept = p.items } } catch (e) { kept = null }
-        var finish = function (items) { lists[si] = { season: season, items: items }; if (--left === 0) combine() }
-        if (kept) { finish(kept); return }
-        picksFor(api, season, style, function (items) {
+        var finish = function (items, stats) {
+            lists[si] = { season: season, items: items }
+            report.push(season.title + ": " + items.length + " shown" + (stats ? " (" + stats.classics + " from the classics list, " + stats.others + " other matches of " + stats.candidates + " looked at)" : " (kept from earlier)"))
+            if (--left === 0) combine()
+        }
+        if (kept) { finish(kept, null); return }
+        picksFor(api, season, style, function (items, stats) {
             if (items.length && store) { try { store.set(key(season), JSON.stringify({ at: Date.now(), items: items })) } catch (e) { /* too big */ } }
-            finish(items)
+            finish(items, stats)
         })
     })
 }

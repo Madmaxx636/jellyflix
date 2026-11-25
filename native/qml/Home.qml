@@ -29,7 +29,7 @@ PageBase {
         var pool = []
         if (Settings.rowSeasonal) pool = holiday.items.filter(worth)
         if (pool.length < 2 && movies.length + shows.length === 0) return
-        if (pool.length >= 2) { heroLabels = holiday.labels } else {
+        if (pool.length >= 1) { heroLabels = holiday.labels } else {
             heroLabels = ({})
             var seen = {}
             pool = []
@@ -67,7 +67,7 @@ PageBase {
         })
         Api.recommendations(r => recs = r)
         var seasons = Seasonal.seasonsFor(new Date())
-        if (seasons.length) Seasonal.holidayPicks(Api, seasons, Settings.seasonalStyle, function (r) { holiday = r; if (!heroTouched) pickHero() }, { get: k => Backend.setting(k, ""), set: (k, v) => Backend.setSetting(k, v) })
+        if (seasons.length) Seasonal.holidayPicks(Api, seasons, Settings.seasonalStyle, function (r) { holiday = r; Nav.holidayReport = r.report || ""; if (!heroTouched) pickHero() }, { get: k => Backend.setting(k, ""), set: (k, v) => Backend.setSetting(k, v) })
     }
     property bool heroTouched: false
 

@@ -51,6 +51,7 @@ FocusScope {
                 anchors.fill: parent
                 source: card.item ? (card.wide ? Api.thumb(card.item, Math.round(card.cw * 2)) : Api.poster(card.item, Math.round(card.cw * 2))) : ""
                 fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: true; smooth: true
+                sourceSize.width: Math.round(card.cw * 2)
                 visible: status === Image.Ready
             }
             Text {
