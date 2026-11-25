@@ -1,4 +1,6 @@
 #include "backend.h"
+#include <QGuiApplication>
+#include <QIcon>
 
 #include <QCoreApplication>
 #include <QDir>
@@ -47,6 +49,14 @@ Backend::Backend(QObject *parent) : QObject(parent), m_settings("jellyflix", "je
 }
 
 QString Backend::deviceName() const { return QSysInfo::machineHostName(); }
+bool Backend::windowIconOk() const { return !QGuiApplication::windowIcon().isNull() && !QGuiApplication::windowIcon().availableSizes().isEmpty(); }
+QString Backend::iconReport() const {
+    // What the desktop is being told, so a missing taskbar icon can be traced without guessing.
+    return QStringLiteral("name %1, desktop file %2, icon %3, installed icon %4, session %5/%6")
+        .arg(QCoreApplication::applicationName(), QGuiApplication::desktopFileName(), windowIconOk() ? "loaded" : "MISSING",
+             QIcon::hasThemeIcon("jellyflix") ? "found" : "not found",
+             qEnvironmentVariable("XDG_SESSION_TYPE", "?"), qEnvironmentVariable("XDG_CURRENT_DESKTOP", "?"));
+}
 QString Backend::version() const { return QCoreApplication::applicationVersion(); }
 
 QString Backend::authorization(const QString &token) const {

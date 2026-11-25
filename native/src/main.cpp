@@ -46,12 +46,15 @@ int main(int argc, char *argv[]) {
     // (The test rig has no graphics card: with JELLYFLIX_HEADLESS=1 the software renderer is used and mpv decodes without a picture.)
     QQuickWindow::setGraphicsApi(qEnvironmentVariableIntValue("JELLYFLIX_HEADLESS") == 1 ? QSGRendererInterface::Software : QSGRendererInterface::OpenGL);
     QGuiApplication app(argc, argv);
-    QGuiApplication::setApplicationName("Jellyflix");
+    // Lowercase on purpose: the window's class name comes from this, and the taskbar finds the icon by matching it to jellyflix.desktop.
+    QGuiApplication::setApplicationName("jellyflix");
+    QGuiApplication::setApplicationDisplayName("Jellyflix");
     QGuiApplication::setOrganizationName("jellyflix");
     QGuiApplication::setApplicationVersion(QStringLiteral(JELLYFLIX_VERSION));
     // The desktop environment matches a window to its icon through this name (jellyflix.desktop); without it the icon is not found.
     QGuiApplication::setDesktopFileName("jellyflix");
-    QGuiApplication::setWindowIcon(QIcon(":/packaging/jellyflix.png"));
+    // The installed theme icon when there is one, the built-in picture otherwise.
+    QGuiApplication::setWindowIcon(QIcon::fromTheme("jellyflix", QIcon(":/packaging/jellyflix.png")));
     QQuickStyle::setStyle("Basic");
 
     // One window: starting the app again brings the open one forward. (The test rig starts many and never meets this.)

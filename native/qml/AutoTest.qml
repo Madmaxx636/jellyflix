@@ -176,6 +176,11 @@ Item {
             }, 20000)
         }, 20000)
         check("updates: a later version is newer, an earlier or equal one is not", Updates.isNewer("1.0.0", "1.0.1") && Updates.isNewer("0.9.9", "v0.10.0") && !Updates.isNewer("1.0.1", "1.0.1") && !Updates.isNewer("1.0.1", "1.0.0"))
+        check("icon: the window icon loaded", Backend.windowIconOk, Backend.iconReport)
+        MediaSession.update("Playing", "Test film", "Test series", "", 120, 5, true, true)
+        var mk = MediaSession.selfCheck()
+        check("media keys: the desktop can read the status and send play/pause", mk === "OK" || mk.indexOf("SKIP") === 0, mk)
+        MediaSession.clear()
         Settings.touchMode = "off"; Settings.touched = true
         var offOk = !Nav.touch
         Settings.touchMode = "auto"; Settings.touched = false

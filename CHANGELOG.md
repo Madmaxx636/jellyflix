@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Media controls. The keyboard's play/pause, next, previous and stop keys, headphone buttons and the desktop's own
+  "now playing" widget now control Jellyflix while something plays, and show the title, series and picture.
+  Linux: the standard MPRIS interface (works with KDE, GNOME, `playerctl`, KDE Connect). Windows: the media keys work
+  while a video is playing (the Windows "now playing" overlay isn't done yet). Inside the player the media keys work too.
+- Settings > About shows a "Taskbar icon" line (what the app tells your desktop) and a "Media keys" line.
+
+### Fixed
+- The taskbar icon not showing on Linux: the app now names itself `jellyflix` in lowercase everywhere, matching
+  `jellyflix.desktop`, uses the installed icon when there is one, and the `.deb` also installs a copy in `/usr/share/pixmaps`.
+
 ## 1.0.6 (2026-11-25)
 
 ### Added

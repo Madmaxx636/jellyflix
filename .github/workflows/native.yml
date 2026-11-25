@@ -55,6 +55,7 @@ jobs:
             mkdir -p "pkg/usr/share/icons/hicolor/${size}x${size}/apps"
             cp "native/packaging/icons/$size.png" "pkg/usr/share/icons/hicolor/${size}x${size}/apps/jellyflix.png"
           done
+          mkdir -p pkg/usr/share/pixmaps; cp native/packaging/icons/64.png pkg/usr/share/pixmaps/jellyflix.png
           cp native/packaging/after-install.sh pkg/DEBIAN/postinst
           cp native/packaging/after-install.sh pkg/DEBIAN/postrm
           size="$(du -sk pkg | cut -f1)"

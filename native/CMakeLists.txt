@@ -6,6 +6,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Network Qml Quick QuickControls2 OpenGL)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_package(Qt6 6.5 REQUIRED COMPONENTS DBus)
+endif()
 # libmpv: found by its header and library rather than through pkg-config, which is not on every system (and not reliable on
 # Windows, where its paths come out in the wrong form).
 find_path(MPV_INCLUDE_DIR mpv/client.h HINTS /opt/homebrew/include /usr/local/include)
@@ -32,6 +35,8 @@ qt_add_executable(jellyflix
     src/backend.h
     src/mpvitem.cpp
     src/mpvitem.h
+    src/mediasession.cpp
+    src/mediasession.h
     ${JELLYFLIX_WINRES}
 )
 
@@ -84,12 +89,16 @@ qt_add_qml_module(jellyflix
     SOURCES
         src/mpvitem.h
         src/backend.h
+        src/mediasession.h
 )
 
 target_include_directories(jellyflix PRIVATE src)
 target_compile_definitions(jellyflix PRIVATE JELLYFLIX_VERSION="${PROJECT_VERSION}")
 target_link_libraries(jellyflix PRIVATE
     Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::OpenGL mpv_lib)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_libraries(jellyflix PRIVATE Qt6::DBus)
+endif()
 
 set_target_properties(jellyflix PROPERTIES
     MACOSX_BUNDLE ON

@@ -17,6 +17,8 @@ class Backend : public QObject {
     Q_PROPERTY(QString deviceId READ deviceId CONSTANT)
     Q_PROPERTY(QString deviceName READ deviceName CONSTANT)
     Q_PROPERTY(QString version READ version CONSTANT)
+    Q_PROPERTY(QString iconReport READ iconReport CONSTANT)
+    Q_PROPERTY(bool windowIconOk READ windowIconOk CONSTANT)
     Q_PROPERTY(bool testMode READ testMode CONSTANT)
     Q_PROPERTY(QString testServer READ testServer CONSTANT)
     Q_PROPERTY(QString shotsDir READ shotsDir CONSTANT)
@@ -28,6 +30,8 @@ public:
     QString deviceId() const { return m_deviceId; }
     QString deviceName() const;
     QString version() const;
+    QString iconReport() const;
+    bool windowIconOk() const;
     /// Set by the test rig (JELLYFLIX_TEST_SERVER): the app signs in to a made-up server and checks itself. Never set in normal use.
     bool testMode() const { return !qEnvironmentVariableIsEmpty("JELLYFLIX_TEST_SERVER"); }
     QString testServer() const { return qEnvironmentVariable("JELLYFLIX_TEST_SERVER"); }

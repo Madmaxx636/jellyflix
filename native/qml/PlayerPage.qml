@@ -70,6 +70,31 @@ FocusScope {
         if (window.visibility === Window.FullScreen) window.visibility = Window.Windowed
         if (Settings.rememberVolume) Backend.setSetting("volume", video.volume)
     }
+    // ---- the desktop's media controls (keys, headphones, the media widget) ----
+    readonly property string nowTitle: item ? (item.Type === "Episode" ? item.Name : item.Name) : ""
+    readonly property string nowSub: item ? (item.Type === "Episode" ? (item.SeriesName || "") : "") : ""
+    function publish() {
+        if (!active || !item) { MediaSession.clear(); return }
+        MediaSession.update(video.paused ? "Paused" : "Playing", nowTitle, nowSub, Api.still(item, 600), duration, video.position, nextEp !== null, true)
+    }
+    Connections { target: video; function onPausedChanged() { player.publish() } }
+    onActiveChanged: publish()
+    onItemChanged: publish()
+    onDurationChanged: publish()
+    Timer { interval: 2000; repeat: true; running: player.active; onTriggered: player.publish() }
+    Connections {
+        target: MediaSession
+        enabled: player.active
+        function onPlay() { player.video.paused = false }
+        function onPause() { player.video.paused = true }
+        function onPlayPause() { player.toggle() }
+        function onStop() { player.leave() }
+        function onNext() { if (player.nextEp) player.playNext(); else player.bump(30) }
+        function onPrevious() { player.bump(-30) }
+        function onSeekBy(s) { player.bump(s) }
+        function onSeekTo(s) { player.video.seek(s, false); player.publish() }
+        function onRaise() { player.window.show(); player.window.raise(); player.window.requestActivate() }
+    }
     function wake() { shown = true; hideTimer.restart() }
     function bump(by) { video.seek(by, true); wake() }
     function toggle() { video.paused = !video.paused; wake() }
@@ -170,6 +195,12 @@ FocusScope {
         case Qt.Key_F: toggleFullscreen(); break
         case Qt.Key_C: { var subs = tracksOf("sub"); video.setSubtitleTrack(subs.some(t => t.selected) ? 0 : (subs.length ? subs[0].id : 0)); break }
         case Qt.Key_N: playNext(); break
+        case Qt.Key_MediaPlay: video.paused = false; break
+        case Qt.Key_MediaPause: video.paused = true; break
+        case Qt.Key_MediaTogglePlayPause: if (!event.isAutoRepeat) player.toggle(); break
+        case Qt.Key_MediaNext: if (nextEp) playNext(); else bump(30); break
+        case Qt.Key_MediaPrevious: bump(-30); break
+        case Qt.Key_MediaStop: leave(); break
         case Qt.Key_Escape: if (menu !== "") menu = ""; else if (window.visibility === Window.FullScreen) window.visibility = Window.Windowed; else leave(); break
         default: return
         }
