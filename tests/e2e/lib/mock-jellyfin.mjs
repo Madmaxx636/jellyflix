@@ -237,7 +237,9 @@ const tokenOf = (req, q) => authInfo(req).Token || (MODE === 'modern' ? undefine
 const readBody = req => new Promise(r => { let b = ''; req.on('data', c => (b += c)); req.on('end', () => r(b)) })
 const VTT = 'WEBVTT\n\n00:00:00.500 --> 00:00:03.000\nHello from the mock subtitles\n\n00:00:03.500 --> 00:00:06.000\nSecond line of subtitles\n'
 
+const DELAY = Number(process.env.MOCK_DELAY ?? 0) // a slow server: every answer waits this many milliseconds
 const handler = async (req, res) => {
+  if (DELAY) await new Promise(r => setTimeout(r, DELAY))
   const u = new URL(req.url, 'http://x'), p = u.pathname, q = u.searchParams
   res.on('finish', () => console.log(`[${PORT}] ${req.method} ${p}${u.search.slice(0, 400)} -> ${res.statusCode}`))
   if (SELF_CORS) {
