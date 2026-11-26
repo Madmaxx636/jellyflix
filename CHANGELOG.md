@@ -10,6 +10,8 @@
 - Settings > About shows a "Taskbar icon" line (what the app tells your desktop) and a "Media keys" line.
 
 ### Fixed
+- Titles missing on tiles when touch mode is on (a touchscreen laptop): the name and details were hidden under the play and
+  list buttons, and only a faint ghost of the title showed through. Touch mode now shows the name, details and buttons.
 - The taskbar icon not showing on Linux: the app now names itself `jellyflix` in lowercase everywhere, matching
   `jellyflix.desktop`, uses the installed icon when there is one, and the `.deb` also installs a copy in `/usr/share/pixmaps`.
 

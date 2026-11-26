@@ -61,7 +61,7 @@ FocusScope {
             }
             // wide tiles show their name on the picture
             Rectangle {
-                visible: (card.wide || Settings.posterTitles) && !card.lit && art.status === Image.Ready
+                visible: (card.wide || Settings.posterTitles) && !card.lit && !Nav.touch && art.status === Image.Ready
                 anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 44
                 gradient: Gradient { GradientStop { position: 0; color: "transparent" } GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 0.85) } }
                 Text { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 10; anchors.bottomMargin: 8; text: card.label; color: "white"; font.pixelSize: 14; font.weight: Font.DemiBold; elide: Text.ElideRight }
@@ -75,8 +75,8 @@ FocusScope {
                 Column {
                     id: info
                     anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 10; spacing: 5
-                    Text { visible: !Nav.touch; width: parent.width; text: card.label; color: "white"; font.pixelSize: 14; font.bold: true; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight }
-                    Text { visible: card.meta !== "" && !Nav.touch; width: parent.width; text: card.meta; color: Theme.muted; font.pixelSize: 12; elide: Text.ElideRight }
+                    Text { width: parent.width; text: card.label; color: "white"; font.pixelSize: 14; font.bold: true; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight }
+                    Text { visible: card.meta !== ""; width: parent.width; text: card.meta; color: Theme.muted; font.pixelSize: 12; elide: Text.ElideRight }
                     Row {
                         spacing: 6
                         Rectangle {
