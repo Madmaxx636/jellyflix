@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.7 (2026-11-26)
 
 ### Added
 - Media controls. The keyboard's play/pause, next, previous and stop keys, headphone buttons and the desktop's own
