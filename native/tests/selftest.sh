@@ -24,7 +24,11 @@ sleep 1.5
 out="$home/out.log"
 # Linux: give the app a private desktop message bus, so the media-key check talks to a real one.
 bus=""; if [ "$(uname)" = "Linux" ] && command -v dbus-run-session >/dev/null 2>&1; then bus="dbus-run-session --"; fi
-( JELLYFLIX_HEADLESS=1 JELLYFLIX_UPDATE_DRYRUN=1 JELLYFLIX_UPDATE_URL="http://127.0.0.1:$port/updates/latest" JELLYFLIX_TEST_SERVER="http://127.0.0.1:$port" QT_QPA_PLATFORM=offscreen HOME="$home" $bus "$app" >"$out" 2>&1; echo $? >"$home/status" ) &
+# SELFTEST_GL=1 draws with OpenGL on the display the caller set up (a hidden virtual compositor), as the real app does.
+# SELFTEST_SETTINGS='{"scale":1.5,"touchMode":"off"}' starts with those options saved.
+render="JELLYFLIX_HEADLESS=1 QT_QPA_PLATFORM=offscreen"; [ -n "${SELFTEST_GL:-}" ] && render=""
+if [ -n "${SELFTEST_SETTINGS:-}" ]; then mkdir -p "$home/.config/jellyflix"; printf '[General]\nsettings="%s"\n' "${SELFTEST_SETTINGS//\"/\\\"}" >"$home/.config/jellyflix/jellyflix.conf"; fi
+( env $render XDG_CONFIG_HOME="$home/.config" JELLYFLIX_UPDATE_DRYRUN=1 JELLYFLIX_UPDATE_URL="http://127.0.0.1:$port/updates/latest" JELLYFLIX_TEST_SERVER="http://127.0.0.1:$port" HOME="$home" $bus "$app" >"$out" 2>&1; echo $? >"$home/status" ) &
 runner=$!
 for _ in $(seq 1 120); do
   kill -0 "$runner" 2>/dev/null || break

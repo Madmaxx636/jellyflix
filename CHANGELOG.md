@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- Touch controls on tiles now work like the web version did: the title stays on the tile and the Play and list buttons
+  sit at its bottom right (bigger, with no dark panel over the picture). On tall posters the title is above the buttons.
+
+### Fixed
+- A tile's title is now shown while its picture is still loading. Before, it waited for the picture, so on a slow
+  connection the tiles were blank until the pictures arrived.
+
 ## 1.0.7 (2026-11-26)
 
 ### Added

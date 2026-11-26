@@ -46,6 +46,20 @@ Item {
     function shoot(name, next) {
         app.uiItem.grabToImage(function (r) { r.saveToFile(Backend.shotsDir + "/" + name + ".png"); console.log("SHOT " + name); next() })
     }
+    function findCards(item, out) {
+        for (var i = 0; i < item.children.length; i++) {
+            var c = item.children[i]
+            if (c.lit !== undefined && c.label !== undefined) out.push(c)
+            findCards(c, out)
+        }
+        return out
+    }
+    // brings a tile into view in the page's own (vertical) scrolling area, a little below the top
+    function scrollTo(card) {
+        var f = card.parent
+        while (f && !(f.contentY !== undefined && f.contentHeight > f.height + 20 && f.contentWidth <= f.width + 2)) f = f.parent
+        if (f) f.contentY = Math.max(0, card.mapToItem(f.contentItem, 0, 0).y - f.height * 0.3)
+    }
     function shots() {
         var looks = ["netflix", "hulu", "hbo", "disney"], li = 0
         var pages = [["home", {}], ["movies", {}], ["settings", {}], ["search", {}], ["libraries", {}], ["new", {}]]
@@ -70,7 +84,13 @@ Item {
                 }
                 var p = pages[pi++]
                 Nav.navigate(p[0], p[1])
-                later(p[0] === "home" ? 3500 : 2200, function () { shoot(p[0] + "-" + Theme.lookId, nextPage) })
+                later(p[0] === "home" ? 3500 : 2200, function () { shoot(p[0] + "-" + Theme.lookId, function () {
+                    if (p[0] !== "home") { nextPage(); return }
+                    // the same page with one tile focused (what hovering shows)
+                    var cards = findCards(app.uiItem, [])
+                    if (cards.length > 0) { cards[0].forceActiveFocus(); scrollTo(cards[0]) }
+                    later(700, function () { shoot("homefocus-" + Theme.lookId, nextPage) })
+                }) })
             }
             nextPage()
         }
@@ -93,6 +113,14 @@ Item {
             check("home: it has Continue Watching", h.resume.length > 0, h.resume.length + " titles")
             check("home: it has a banner", h.heroItems.length > 0, h.heroItems.length + " slides")
             check("home: it lists the libraries and hides Music", h.views.length > 0 && !h.views.some(v => v.CollectionType === "music"), h.views.map(v => v.Name).join(", "))
+            // every tile carries its name, with touch controls off and on (a tile's picture may still be loading)
+            var tiles = findCards(app.uiItem, []).filter(c => c.item)
+            var tilesOff = tiles.length > 0 && tiles.every(c => c.nameShown)
+            var touchWas = Settings.touchMode
+            Settings.touchMode = "on"
+            var tilesOn = tiles.every(c => c.nameShown)
+            Settings.touchMode = touchWas
+            check("tiles: every tile shows its name, with touch controls off and on", tilesOff && tilesOn, tiles.length + " tiles")
             if (Backend.shotsDir !== "") { shots(); return }
             until("home: the genre rows follow, after the first screen", () => h.genreRows.length > 0, function () {
                 if (Seasonal.seasonsFor(new Date()).length > 0) until("home: the holiday banner says what it found", () => Nav.holidayReport !== "" && h.heroItems.length > 0 && Object.keys(h.heroLabels).length > 0, function () {

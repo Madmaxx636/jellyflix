@@ -12,6 +12,12 @@ FocusScope {
     readonly property real cw: wide ? Theme.cardWideW : Theme.cardW
     readonly property real ch: wide ? cw * 9 / 16 : cw * 1.5
     readonly property bool lit: mouse.containsMouse || activeFocus
+    // no picture to show: none exists on the server, or it could not be loaded (the name stands in for it)
+    readonly property bool noPicture: art.status !== Image.Ready && (art.status === Image.Error || art.source == "" || (item && !(item.ImageTags && (item.ImageTags.Primary || item.ImageTags.Thumb)) && !(item.BackdropImageTags && item.BackdropImageTags.length)))
+    readonly property bool titled: wide || Settings.posterTitles
+    // The name stays on the tile while its picture is still loading, and (touch) while its buttons are showing.
+    readonly property bool stripShown: titled && (Nav.touch || !lit) && !noPicture
+    readonly property bool nameShown: stripShown || (lit && !Nav.touch) || noPicture
     readonly property bool playable: item && ["Movie", "Episode", "Video", "MusicVideo"].indexOf(item.Type) >= 0
     width: ranked ? cw + rankSize * 0.55 : cw
     height: ch
@@ -55,40 +61,47 @@ FocusScope {
                 visible: status === Image.Ready
             }
             Text {
-                // no picture at all, or one that could not be loaded: the name stands in for it
-                visible: art.status !== Image.Ready && (art.status === Image.Error || art.source == "" || (card.item && !(card.item.ImageTags && (card.item.ImageTags.Primary || card.item.ImageTags.Thumb)) && !(card.item.BackdropImageTags && card.item.BackdropImageTags.length)))
+                visible: card.noPicture
                 anchors.fill: parent; anchors.margins: 10; text: card.item ? card.item.Name : ""; color: Theme.muted; wrapMode: Text.Wrap; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
             }
-            // wide tiles show their name on the picture
+            // the name along the bottom of the picture (wide tiles, or every tile with Settings > Titles on posters).
+            // Touch: it stays while the buttons show, and makes room for them (beside them on wide tiles, above them on tall ones).
             Rectangle {
-                visible: (card.wide || Settings.posterTitles) && !card.lit && !Nav.touch && art.status === Image.Ready
-                anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 44
+                visible: card.stripShown
+                anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: Nav.touch && !card.wide ? 92 : 44
                 gradient: Gradient { GradientStop { position: 0; color: "transparent" } GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 0.85) } }
-                Text { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 10; anchors.bottomMargin: 8; text: card.label; color: "white"; font.pixelSize: 14; font.weight: Font.DemiBold; elide: Text.ElideRight }
+                Text {
+                    anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 10
+                    anchors.bottomMargin: Nav.touch && !card.wide ? 56 : 8
+                    anchors.rightMargin: Nav.touch && card.wide ? (card.playable ? 100 : 54) : 10
+                    text: card.label; color: "white"; font.pixelSize: 14; font.weight: Font.DemiBold; elide: Text.ElideRight
+                }
             }
             // hover: name, facts, buttons
             Rectangle {
                 opacity: card.lit || Nav.touch ? 1 : 0
-                anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: info.implicitHeight + 46
-                gradient: Gradient { GradientStop { position: 0; color: "transparent" } GradientStop { position: 0.55; color: Qt.rgba(0, 0, 0, 0.94) } GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 0.94) } }
+                anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: Nav.touch ? 52 : info.implicitHeight + 46
+                // touch: no darkening, only the buttons (the name is on the strip)
+                gradient: Gradient { GradientStop { position: 0; color: "transparent" } GradientStop { position: 0.55; color: Qt.rgba(0, 0, 0, Nav.touch ? 0 : 0.94) } GradientStop { position: 1; color: Qt.rgba(0, 0, 0, Nav.touch ? 0 : 0.94) } }
                 Behavior on opacity { NumberAnimation { duration: 150 } }
                 Column {
                     id: info
-                    anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 10; spacing: 5
-                    Text { width: parent.width; text: card.label; color: "white"; font.pixelSize: 14; font.bold: true; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight }
-                    Text { visible: card.meta !== ""; width: parent.width; text: card.meta; color: Theme.muted; font.pixelSize: 12; elide: Text.ElideRight }
+                    anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: Nav.touch ? 6 : 10; spacing: 5
+                    Text { visible: !Nav.touch; width: parent.width; text: card.label; color: "white"; font.pixelSize: 14; font.bold: true; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight }
+                    Text { visible: card.meta !== "" && !Nav.touch; width: parent.width; text: card.meta; color: Theme.muted; font.pixelSize: 12; elide: Text.ElideRight }
                     Row {
                         spacing: 6
+                        x: Nav.touch ? info.width - width : 0
                         Rectangle {
-                            visible: card.playable; width: 30; height: 30; radius: 15; color: "white"
-                            Icon { anchors.centerIn: parent; name: "play"; size: 16; color: "black" }
+                            visible: card.playable; width: Nav.touch ? 40 : 30; height: width; radius: width / 2; color: "white"
+                            Icon { anchors.centerIn: parent; name: "play"; size: Nav.touch ? 20 : 16; color: "black" }
                             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Nav.play(card.item, {}) }
                         }
                         Rectangle {
                             id: listBtn
                             readonly property bool fav: { Flags.version; return card.item ? Flags.fav(card.item) : false }
-                            width: 30; height: 30; radius: 15; color: fav ? Theme.accent : Qt.rgba(0.08, 0.08, 0.08, 0.75); border.width: 2; border.color: fav ? Theme.accent : Qt.rgba(1, 1, 1, 0.6)
-                            Icon { anchors.centerIn: parent; name: listBtn.fav ? "check" : "plus"; size: 16; color: listBtn.fav ? Theme.onAccent : "white" }
+                            width: Nav.touch ? 40 : 30; height: width; radius: width / 2; color: fav ? Theme.accent : (Nav.touch ? Qt.rgba(0, 0, 0, 0.65) : Qt.rgba(0.08, 0.08, 0.08, 0.75)); border.width: 2; border.color: fav ? Theme.accent : Qt.rgba(1, 1, 1, 0.6)
+                            Icon { anchors.centerIn: parent; name: listBtn.fav ? "check" : "plus"; size: Nav.touch ? 20 : 16; color: listBtn.fav ? Theme.onAccent : "white" }
                             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Flags.toggleFavorite(card.item) }
                         }
                     }
