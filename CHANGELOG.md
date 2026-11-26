@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.8 (2026-11-26)
 
 ### Changed
 - Touch controls on tiles now work like the web version did: the title stays on the tile and the Play and list buttons
