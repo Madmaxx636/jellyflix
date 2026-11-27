@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.9 (2026-11-27)
 
 ### Fixed
 - The screen could go to sleep (or the screen saver and lock screen start) in the middle of a film. Nothing told the system
