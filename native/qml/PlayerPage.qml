@@ -75,12 +75,21 @@ FocusScope {
     readonly property string nowSub: item ? (item.Type === "Episode" ? (item.SeriesName || "") : "") : ""
     function publish() {
         if (!active || !item) { MediaSession.clear(); return }
-        MediaSession.update(video.paused ? "Paused" : "Playing", nowTitle, nowSub, Api.still(item, 600), duration, video.position, nextEp !== null, true)
+        // "Playing" is also what keeps the screen from going to sleep, so it means a picture that is moving: not paused, no
+        // error showing, and not sitting on the end card (the next episode, when there is one, starts through leave() and start()).
+        const moving = !video.paused && failure === "" && video.error === "" && !ended
+        MediaSession.update(moving ? "Playing" : "Paused", nowTitle, nowSub, Api.still(item, 600), duration, video.position, nextEp !== null, true)
     }
-    Connections { target: video; function onPausedChanged() { player.publish() } }
+    Connections {
+        target: video
+        function onPausedChanged() { player.publish() }
+        function onErrorChanged() { player.publish() }
+    }
     onActiveChanged: publish()
     onItemChanged: publish()
     onDurationChanged: publish()
+    onEndedChanged: publish()
+    onFailureChanged: publish()
     Timer { interval: 2000; repeat: true; running: player.active; onTriggered: player.publish() }
     Connections {
         target: MediaSession

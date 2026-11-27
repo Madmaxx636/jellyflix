@@ -1,8 +1,10 @@
 #pragma once
-// What the rest of the desktop sees of the player: "now playing" and the media keys.
+// What the rest of the desktop sees of the player: "now playing", the media keys, and whether the screen may go to sleep.
 //   Linux:   MPRIS over D-Bus (org.mpris.MediaPlayer2.jellyflix). Keyboard media keys, headphone buttons,
 //            the desktop's media widget, KDE Connect and playerctl all talk to this.
-//   Windows: the media keys, registered as global hotkeys while something is playing.
+//            While a video plays it also asks the desktop's screen saver service to keep the screen on.
+//   Windows: the media keys, registered as global hotkeys while something is playing, and the display kept on.
+// (mpv does not do the screen part itself: it only does it for a window it opens, and here the app draws the picture.)
 // The player page tells it what is playing (update) and listens for what the desktop asks for (the signals).
 #include <QElapsedTimer>
 #include <QObject>
@@ -27,12 +29,15 @@ class MediaSession : public QObject
     QML_SINGLETON
     Q_PROPERTY(bool registered READ registered CONSTANT)
     Q_PROPERTY(QString report READ report CONSTANT)
+    // True while the system is being asked to keep the screen on (a video is playing, not paused, no error or end card showing).
+    Q_PROPERTY(bool keepAwake READ keepAwake NOTIFY keepAwakeChanged)
 public:
     explicit MediaSession(QObject *parent = nullptr);
     ~MediaSession() override;
 
     bool registered() const { return m_registered; }
     QString report() const { return m_report; }
+    bool keepAwake() const { return m_awake; }
 
     // status: "Playing", "Paused" or "Stopped". Lengths and positions are in seconds.
     Q_INVOKABLE void update(const QString &status, const QString &title, const QString &subtitle, const QString &artUrl,
@@ -40,8 +45,12 @@ public:
     Q_INVOKABLE void clear();
     // Used by the self-test: asks for the same things the desktop would, through the real bus.
     Q_INVOKABLE QString selfCheck();
+    // Used by the self-test: waits for the system's answer to the request to keep the screen on. "OK", "SKIP ..." when this
+    // system has nothing to ask (a test machine with no desktop), or what went wrong.
+    Q_INVOKABLE QString awakeCheck();
 
 signals:
+    void keepAwakeChanged();
     void play();
     void pause();
     void playPause();
@@ -70,6 +79,22 @@ private:
     QElapsedTimer m_since;
     void setKeysActive(bool on);
     bool m_keys = false;
+
+    // The screen: asked to stay on while a video plays, let go otherwise.
+    void setAwake(bool on);
+    void applyAwake(bool on);
+    bool m_awake = false;
+#ifdef Q_OS_WIN
+    bool m_awakeOk = true;   // Windows accepted the last request
+#endif
+#ifdef Q_OS_LINUX
+    void inhibit(int way);
+    void release(int way, uint cookie);
+    bool m_held = false;     // the desktop has agreed, and gave back m_cookie to let go of it with
+    uint m_cookie = 0;
+    int m_way = 0;           // which of the desktop's services agreed
+    int m_asking = 0;        // requests sent that have not been answered yet
+#endif
 };
 
 #ifdef Q_OS_LINUX

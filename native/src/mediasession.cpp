@@ -1,11 +1,14 @@
 #include "mediasession.h"
 #include <QCoreApplication>
 #include <QDateTime>
+#include <QEventLoop>
 #ifdef Q_OS_LINUX
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusInterface>
 #include <QDBusMessage>
+#include <QDBusPendingCallWatcher>
+#include <QDBusPendingReply>
 #include <QDBusReply>
 #endif
 #ifdef Q_OS_WIN
@@ -13,6 +16,18 @@
 #endif
 
 #ifdef Q_OS_LINUX
+namespace {
+// The desktop services that keep the screen on for a program that asks, tried in this order (the first one that is there answers).
+struct Way { const char *service, *path, *iface, *release; bool gnome; };
+const Way kWays[] = {
+    // KDE Plasma, Xfce, Cinnamon, MATE, LXQt
+    {"org.freedesktop.ScreenSaver", "/org/freedesktop/ScreenSaver", "org.freedesktop.ScreenSaver", "UnInhibit", false},
+    // GNOME (its way of letting go is spelled with a small "i")
+    {"org.gnome.SessionManager", "/org/gnome/SessionManager", "org.gnome.SessionManager", "Uninhibit", true},
+};
+constexpr int kWayCount = int(sizeof(kWays) / sizeof(kWays[0]));
+} // namespace
+
 QVariantMap MprisPlayer::metadata() const {
     QVariantMap m;
     m["mpris:trackid"] = QVariant::fromValue(QDBusObjectPath(s->title.isEmpty() ? "/org/mpris/MediaPlayer2/TrackList/NoTrack" : "/app/jellyflix/current"));
@@ -47,7 +62,7 @@ MediaSession::MediaSession(QObject *parent) : QObject(parent) {
 #endif
 }
 
-MediaSession::~MediaSession() { setKeysActive(false); }
+MediaSession::~MediaSession() { setKeysActive(false); applyAwake(false); }
 
 double MediaSession::currentPosition() const {
     return status == "Playing" ? position + m_since.elapsed() / 1000.0 : position;
@@ -92,9 +107,86 @@ void MediaSession::update(const QString &st, const QString &t, const QString &su
     Q_UNUSED(expected);
 #endif
     setKeysActive(st != "Stopped");
+    setAwake(st == "Playing");
 }
 
 void MediaSession::clear() { update("Stopped", "", "", "", 0, 0, false, false); }
+
+// ---- the screen: kept on while a video plays (not while paused), let go of otherwise ----
+void MediaSession::setAwake(bool on) {
+    if (on == m_awake) return;
+    m_awake = on;
+    applyAwake(on);
+    emit keepAwakeChanged();
+}
+
+#ifdef Q_OS_WIN
+void MediaSession::applyAwake(bool on) {
+    // The display stays on, and the screen saver and the lock screen stay away, until this is cleared. Windows ties it to the thread
+    // that set it: always the interface thread here, which lives as long as the program does.
+    m_awakeOk = SetThreadExecutionState(on ? (ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED) : ES_CONTINUOUS) != 0;
+}
+#elif defined(Q_OS_LINUX)
+// Asked of the desktop's own service, the way a browser does for a playing video. The desktop keeps the request until it is
+// let go of or this program's connection to the bus ends, so a crash lets go of it too.
+void MediaSession::applyAwake(bool on) {
+    if (on) {
+        if (!m_held && m_asking == 0) inhibit(0);       // (a request already on its way takes it over when it is answered)
+    } else if (m_held) {
+        m_held = false;
+        release(m_way, m_cookie);
+    }
+}
+
+void MediaSession::inhibit(int way) {
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    if (way >= kWayCount || !bus.isConnected()) return;   // nothing on this desktop to ask
+    const Way &w = kWays[way];
+    QDBusMessage call = QDBusMessage::createMethodCall(w.service, w.path, w.iface, "Inhibit");
+    if (w.gnome) call << QStringLiteral("jellyflix") << uint(0) << QStringLiteral("Playing a video") << uint(8);   // 8: stop it going idle
+    else call << QStringLiteral("Jellyflix") << QStringLiteral("Playing a video");
+    call.setAutoStartService(false);                      // only a service that is already running, never start one for this
+    m_asking++;
+    auto *watcher = new QDBusPendingCallWatcher(bus.asyncCall(call), this);   // asked without waiting: the desktop may be slow
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, way, watcher] {
+        watcher->deleteLater();
+        m_asking--;
+        const QDBusPendingReply<uint> reply = *watcher;
+        if (reply.isError()) {
+            if (m_awake && !m_held) inhibit(way + 1);     // not this desktop's way: try the next
+            return;
+        }
+        if (m_awake && !m_held) { m_held = true; m_cookie = reply.value(); m_way = way; }
+        else release(way, reply.value());                 // the video stopped while it was being asked: give it straight back
+    });
+}
+
+void MediaSession::release(int way, uint cookie) {
+    const Way &w = kWays[way];
+    QDBusMessage call = QDBusMessage::createMethodCall(w.service, w.path, w.iface, w.release);
+    call.setAutoStartService(false);
+    call << cookie;
+    QDBusConnection::sessionBus().asyncCall(call);        // nobody waits for the answer
+}
+#else
+void MediaSession::applyAwake(bool) {}
+#endif
+
+QString MediaSession::awakeCheck() {
+    if (!m_awake) return "the screen is not being kept on";
+#ifdef Q_OS_WIN
+    return m_awakeOk ? "OK" : "Windows refused to keep the display on";
+#elif defined(Q_OS_LINUX)
+    // the answer comes over the bus: give it a moment
+    QElapsedTimer waited;
+    waited.start();
+    while (m_asking > 0 && waited.elapsed() < 3000) QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
+    if (m_held) return "OK";
+    return m_asking > 0 ? "the desktop did not answer" : "SKIP no screen saver service on this desktop's bus to ask";
+#else
+    return "SKIP not available on this system yet";
+#endif
+}
 
 #ifdef Q_OS_WIN
 namespace { enum { HkPlayPause = 0x4a01, HkNext, HkPrev, HkStop }; }

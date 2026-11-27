@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- The screen could go to sleep (or the screen saver and lock screen start) in the middle of a film. Nothing told the system
+  a video was playing: mpv only does that for a window it opens itself, and Jellyflix draws the picture in its own window.
+  Jellyflix now keeps the screen on while a video plays and lets go when you pause, reach the end, hit an error or close
+  the player. Windows asks for the display to stay on. Linux asks the desktop's own screen saver service (the standard one
+  that KDE Plasma and several other desktops offer, or GNOME's session manager). macOS isn't covered yet.
+- The desktop's "now playing" said "Playing" on the error screen and after a film had ended. It now says paused there.
+
 ## 1.0.8 (2026-11-26)
 
 ### Changed

@@ -151,13 +151,27 @@ Item {
             check("player: the length is known", app.videoItem.duration > 8, app.videoItem.duration + " s")
             check("player: it finds the audio track", app.playerPage.tracksOf("audio").length > 0, JSON.stringify(app.videoItem.tracks.map(t => t.type + ":" + t.codec)))
             check("player: the intro and credits markers are read", app.playerPage.segments.length > 0, app.playerPage.segments.length + " markers")
+            check("screen: it is kept on while a video plays", MediaSession.keepAwake)
             app.videoItem.paused = true
             until("player: pausing works", () => app.videoItem.paused, function () {
+                check("screen: it is let go of when the video is paused", !MediaSession.keepAwake)
                 app.videoItem.seek(5)
                 until("player: seeking works", () => Math.abs(app.videoItem.position - 5) < 1.5, function () {
-                    app.playerPage.leave()
-                    check("player: leaving closes it", !app.playerPage.active)
-                    browse()
+                    app.videoItem.paused = false
+                    until("screen: it is kept on again when the video plays on", () => MediaSession.keepAwake, function () {
+                        // the end card and the error screen are not a picture that is moving: the screen may sleep there
+                        app.playerPage.ended = true
+                        var onEndCard = MediaSession.keepAwake
+                        app.playerPage.ended = false
+                        app.playerPage.failure = "Test error"
+                        var onErrorScreen = MediaSession.keepAwake
+                        app.playerPage.failure = ""
+                        check("screen: it is let go of on the end card and on the error screen, and kept on when they go", !onEndCard && !onErrorScreen && MediaSession.keepAwake)
+                        app.playerPage.leave()
+                        check("player: leaving closes it", !app.playerPage.active)
+                        check("screen: it is let go of when the player closes", !MediaSession.keepAwake)
+                        browse()
+                    })
                 })
             })
         }, 25000)
@@ -208,7 +222,10 @@ Item {
         MediaSession.update("Playing", "Test film", "Test series", "", 120, 5, true, true)
         var mk = MediaSession.selfCheck()
         check("media keys: the desktop can read the status and send play/pause", mk === "OK" || mk.indexOf("SKIP") === 0, mk)
+        var aw = MediaSession.awakeCheck()
+        check("screen: the system accepts the request to keep it on (where it has a way to ask)", aw === "OK" || aw.indexOf("SKIP") === 0, aw)
         MediaSession.clear()
+        check("screen: it is let go of when nothing plays", !MediaSession.keepAwake)
         Settings.touchMode = "off"; Settings.touched = true
         var offOk = !Nav.touch
         Settings.touchMode = "auto"; Settings.touched = false

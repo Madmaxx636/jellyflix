@@ -48,7 +48,9 @@ each look is modelled on.
   Esc closes a menu, leaves full screen, then goes back. On the seek bar itself ←/→ move 5 s, Page Up / Page Down a
   minute, Home / End jump to the ends.
 - A short network or decoding hiccup is retried before you're told; a refused or failing stream says so. Media keys
-  and the system's "now playing" show and control the title.
+  and the system's "now playing" show and control the title. On Windows, and on Linux desktops with a screen saver service
+  (KDE Plasma, GNOME and most others), the screen stays on while a video plays (the display, screen saver and lock screen
+  wait) and is let go when you pause or leave.
 
 **Settings**
 - Playback: autoplay next episode, skip intros, preferred audio language, subtitles (off, only when the audio isn't your
